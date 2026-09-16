@@ -1,0 +1,6 @@
+{
+  "name": "Clean Convictions Business Manager",
+  "description": "Solo cleaning business management app for Clean Convictions featuring the authentic flat-rate pricing estimator, client CRM, scheduling, on-site checklists, and invoicing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

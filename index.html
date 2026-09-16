@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clean Convictions Business Manager</title>
+    <meta name="description" content="Solo cleaning business management app for Clean Convictions featuring the authentic flat-rate pricing estimator, client CRM, scheduling, on-site checklists, and invoicing." />
+    <meta property="og:title" content="Clean Convictions Business Manager" />
+    <meta property="og:description" content="Solo cleaning business management app for Clean Convictions featuring the authentic flat-rate pricing estimator, client CRM, scheduling, on-site checklists, and invoicing." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="icon" href="./icon-192.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js").catch(function () {});
+        });
+      }
+    </script>
+  </body>
+</html>
+

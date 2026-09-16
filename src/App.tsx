@@ -1,0 +1,762 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Client,
+  JobAppointment,
+  Invoice,
+  PricingSettings,
+  EstimatorInput,
+  BlockedTime,
+  QuoteBreakdown,
+  CleaningProgram,
+  Referral,
+  Expense,
+  HelperShift,
+} from './types';
+import {
+  generateReferralCode,
+} from './utils/starterData';
+import {
+  DEFAULT_PRICING_SETTINGS,
+  calculateEstimate,
+  generateChecklistForJob,
+} from './utils/pricingEngine';
+import { nextRecurrenceDate } from './utils/recurring';
+import { syncCollection, syncDoc, putDoc, removeDoc, putSettingsDoc } from './firebase';
+import { signOutUser } from './components/AuthGate';
+import { Navbar, AppTab } from './components/Navbar';
+import { DashboardView } from './components/DashboardView';
+import { EstimatorView } from './components/EstimatorView';
+import { ScheduleView } from './components/ScheduleView';
+import { ChecklistView } from './components/ChecklistView';
+import { ClientsView } from './components/ClientsView';
+import { InvoicesView } from './components/InvoicesView';
+import { ExpensesView } from './components/ExpensesView';
+import { TeamView } from './components/TeamView';
+import { SettingsView } from './components/SettingsView';
+import { ReferralsView } from './components/ReferralsView';
+
+interface AppProps {
+  userEmail: string;
+}
+
+export default function App({ userEmail }: AppProps) {
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
+
+  // All business data lives in Firestore and syncs live between every
+  // signed-in team member's device — nothing is stored only locally.
+  const [clients, setClients] = useState<Client[]>([]);
+  const [jobs, setJobs] = useState<JobAppointment[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [settings, setSettings] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
+  const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [helperShifts, setHelperShifts] = useState<HelperShift[]>([]);
+
+  // Active job selected for checklist walkthrough
+  const [selectedJobIdForChecklist, setSelectedJobIdForChecklist] = useState<string>('');
+
+  // Initial input passed to estimator (e.g. when "Re-Quote" clicked on a client)
+  const [estimatorInputData, setEstimatorInputData] = useState<Partial<EstimatorInput> | undefined>();
+
+  // Subscribe to live Firestore data once, for the lifetime of the app shell.
+  useEffect(() => {
+    const unsubs = [
+      syncCollection<Client>('clients', setClients),
+      syncCollection<JobAppointment>('jobs', setJobs),
+      syncCollection<Invoice>('invoices', setInvoices),
+      syncCollection<BlockedTime>('blockedTimes', setBlockedTimes),
+      syncCollection<Referral>('referrals', setReferrals),
+      syncCollection<Expense>('expenses', setExpenses),
+      syncCollection<HelperShift>('helperShifts', setHelperShifts),
+      syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, setSettings),
+    ];
+    return () => unsubs.forEach((u) => u());
+  }, []);
+
+  // Find currently active in-progress job id
+  const inProgressJob = jobs.find((j) => j.status === 'in-progress');
+
+  // --- Handlers (every mutation writes straight to Firestore; the live
+  // subscriptions above reflect the change back into state for everyone,
+  // including this tab) ---
+
+  // Book job from estimator
+  const handleBookJobFromEstimator = (
+    input: EstimatorInput,
+    clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string }
+  ) => {
+    const referralDiscount = input.referralCode ? (settings.referralDiscountAmount || 25) : 0;
+    const inputWithReferral: EstimatorInput = {
+      ...input,
+      referralCode: input.referralCode,
+      referralDiscount,
+    };
+    const quote = calculateEstimate(inputWithReferral, settings);
+
+    // Check if client exists or create a new client record
+    let clientId = 'c-' + Date.now();
+    const existing = clients.find(
+      (c) => c.name.toLowerCase() === clientInfo.name.toLowerCase()
+    );
+    if (existing) {
+      clientId = existing.id;
+    } else {
+      const newClient: Client = {
+        id: clientId,
+        name: clientInfo.name,
+        phone: clientInfo.phone,
+        email: '',
+        address: clientInfo.address,
+        city: 'Yuma',
+        preferredFrequency: input.frequency,
+        defaultProgram: input.program,
+        sqft: input.sqft,
+        bedrooms: input.bedrooms,
+        bathrooms: input.bathrooms,
+        condition: input.condition,
+        isMilitary: input.isMilitaryOrVeteran,
+        defaultAddOns: input.selectedAddOns,
+        agreedRate: quote.finalPrice,
+        status: 'active',
+        referralCode: generateReferralCode(clientInfo.name, clientInfo.phone),
+        referralCreditBalance: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      putDoc('clients', newClient.id, newClient);
+    }
+
+    // If a referral code was entered, match to existing referrer and record referral
+    if (input.referralCode) {
+      const cleanCode = input.referralCode.trim().toUpperCase();
+      const referrer = clients.find(
+        (c) => c.referralCode && c.referralCode.toUpperCase() === cleanCode
+      );
+
+      const newReferral: Referral = {
+        id: 'ref-' + Date.now(),
+        referrerClientId: referrer ? referrer.id : 'organic',
+        referrerName: referrer ? referrer.name : 'Clean Convictions Promo',
+        referrerCode: cleanCode,
+        refereeName: clientInfo.name,
+        refereePhone: clientInfo.phone,
+        status: 'qualified',
+        dateReferred: new Date().toISOString().split('T')[0],
+        dateQualified: clientInfo.date,
+        refereeDiscount: referralDiscount,
+        rewardAmount: settings.referralRewardAmount || 25,
+        notes: `Applied on estimate for ${clientInfo.date} service.`,
+      };
+
+      putDoc('referrals', newReferral.id, newReferral);
+
+      // If known referrer, award them their $25 credit immediately
+      if (referrer) {
+        putDoc('clients', referrer.id, {
+          ...referrer,
+          referralCreditBalance: (referrer.referralCreditBalance || 0) + (settings.referralRewardAmount || 25),
+        });
+      }
+    }
+
+    const newJob: JobAppointment = {
+      id: 'job-' + Date.now(),
+      clientId,
+      clientName: clientInfo.name,
+      clientPhone: clientInfo.phone,
+      address: clientInfo.address,
+      date: clientInfo.date,
+      timeSlot: clientInfo.timeSlot,
+      program: input.program,
+      condition: input.condition,
+      sqft: input.sqft,
+      bedrooms: input.bedrooms,
+      bathrooms: input.bathrooms,
+      selectedAddOns: input.selectedAddOns,
+      price: quote.finalPrice,
+      status: 'scheduled',
+      checklist: generateChecklistForJob(input.program, input.selectedAddOns),
+      notes: `Booked from Clean Convictions Estimator. Rate: $${quote.finalPrice}${
+        input.referralCode ? ` (Referral Code ${input.referralCode} applied: -$${referralDiscount})` : ''
+      }`,
+    };
+
+    putDoc('jobs', newJob.id, newJob);
+    setActiveTab('schedule');
+  };
+
+  // Save client from estimator
+  const handleSaveClientFromEstimator = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
+    const newClient: Client = {
+      ...clientData,
+      id: 'c-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('clients', newClient.id, newClient);
+    setActiveTab('clients');
+  };
+
+  // Update job status (e.g. start, finish)
+  const handleUpdateJobStatus = (
+    jobId: string,
+    status: JobAppointment['status'],
+    minutes?: number
+  ) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, {
+      ...job,
+      status,
+      actualMinutes: minutes !== undefined ? minutes : job.actualMinutes,
+    });
+  };
+
+  // Open checklist for specific job
+  const handleOpenChecklist = (jobId: string) => {
+    setSelectedJobIdForChecklist(jobId);
+    setActiveTab('checklist');
+  };
+
+  // Toggle checklist item
+  const handleToggleCheckItem = (jobId: string, itemId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const updatedChecklist = job.checklist.map((item) =>
+      item.id === itemId ? { ...item, isCompleted: !item.isCompleted } : item
+    );
+    putDoc('jobs', jobId, { ...job, checklist: updatedChecklist });
+  };
+
+  // Mark all checklist items complete
+  const handleMarkAllCompleted = (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, {
+      ...job,
+      checklist: job.checklist.map((item) => ({ ...item, isCompleted: true })),
+    });
+  };
+
+  // Save job note
+  const handleSaveJobNotes = (jobId: string, notes: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, { ...job, notes });
+  };
+
+  // Complete job and auto-generate invoice
+  const handleCompleteJob = (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+
+    // Check if invoice already exists
+    const existingInv = invoices.find((inv) => inv.jobId === jobId);
+    let invId = existingInv?.id;
+
+    if (!existingInv) {
+      const newInvNumber = `CC-2026-${Math.floor(100 + Math.random() * 900)}`;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const newInvoice: Invoice = {
+        id: 'inv-' + Date.now(),
+        invoiceNumber: newInvNumber,
+        jobId: job.id,
+        clientId: job.clientId,
+        clientName: job.clientName,
+        clientEmail: '',
+        clientPhone: job.clientPhone,
+        clientAddress: job.address,
+        issueDate: todayStr,
+        dueDate: todayStr,
+        serviceDate: job.date,
+        program: job.program,
+        items: [
+          {
+            description: `${job.program.toUpperCase()} Cleaning (${job.sqft.toLocaleString()} sq ft • ${job.bedrooms} Bed / ${job.bathrooms} Bath)`,
+            amount: job.price,
+          },
+        ],
+        subtotal: job.price,
+        discountTotal: 0,
+        totalAmount: job.price,
+        status: 'unpaid',
+        notes: `Service completed and certified on ${todayStr}. Spot missed? 24-hr guarantee holds.`,
+      };
+
+      invId = newInvoice.id;
+      putDoc('invoices', newInvoice.id, newInvoice);
+    }
+
+    putDoc('jobs', jobId, { ...job, status: 'completed', invoiceId: invId });
+
+    // Auto-schedule the client's next visit if they're on a recurring
+    // frequency, auto-recurring hasn't been turned off for them, and they
+    // don't already have a future job on the books.
+    const client = clients.find((c) => c.id === job.clientId);
+    if (client && client.autoRecurring !== false) {
+      const nextDate = nextRecurrenceDate(job.date, client.preferredFrequency);
+      if (nextDate) {
+        const hasFutureJob = jobs.some(
+          (j) => j.clientId === client.id && j.date > job.date && j.status !== 'cancelled'
+        );
+        if (!hasFutureJob) {
+          const nextJob: JobAppointment = {
+            id: 'job-' + (Date.now() + 1),
+            clientId: client.id,
+            clientName: client.name,
+            clientPhone: client.phone,
+            address: client.address,
+            date: nextDate,
+            timeSlot: job.timeSlot,
+            program: job.program,
+            condition: client.condition,
+            sqft: job.sqft,
+            bedrooms: job.bedrooms,
+            bathrooms: job.bathrooms,
+            selectedAddOns: job.selectedAddOns,
+            price: job.price,
+            status: 'scheduled',
+            checklist: generateChecklistForJob(job.program, job.selectedAddOns),
+            notes: 'Auto-scheduled next recurring visit.',
+          };
+          putDoc('jobs', nextJob.id, nextJob);
+        }
+      }
+    }
+  };
+
+  // Create invoice from job on schedule
+  const handleCreateInvoiceFromJob = (job: JobAppointment) => {
+    const existing = invoices.find((inv) => inv.jobId === job.id);
+    if (existing) {
+      setActiveTab('invoices');
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newInvoice: Invoice = {
+      id: 'inv-' + Date.now(),
+      invoiceNumber: `CC-2026-${Math.floor(100 + Math.random() * 900)}`,
+      jobId: job.id,
+      clientId: job.clientId,
+      clientName: job.clientName,
+      clientEmail: '',
+      clientPhone: job.clientPhone,
+      clientAddress: job.address,
+      issueDate: todayStr,
+      dueDate: todayStr,
+      serviceDate: job.date,
+      program: job.program,
+      items: [
+        {
+          description: `${job.program.toUpperCase()} Home Cleaning (${job.sqft.toLocaleString()} sq ft)`,
+          amount: job.price,
+        },
+      ],
+      subtotal: job.price,
+      discountTotal: 0,
+      totalAmount: job.price,
+      status: 'unpaid',
+      notes: 'Clean Convictions flat rate billing. Payment due upon service completion.',
+    };
+
+    putDoc('invoices', newInvoice.id, newInvoice);
+    setActiveTab('invoices');
+  };
+
+  // Add scheduled job
+  const handleAddJob = (jobData: Omit<JobAppointment, 'id' | 'checklist'>) => {
+    const newJob: JobAppointment = {
+      ...jobData,
+      id: 'job-' + Date.now(),
+      checklist: generateChecklistForJob(jobData.program, jobData.selectedAddOns || []),
+    };
+    putDoc('jobs', newJob.id, newJob);
+  };
+
+  // Clients CRM Actions
+  const handleAddClient = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
+    const newClient: Client = {
+      ...clientData,
+      id: 'c-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('clients', newClient.id, newClient);
+  };
+
+  const handleUpdateClient = (updatedClient: Client) => {
+    putDoc('clients', updatedClient.id, updatedClient);
+  };
+
+  const handleDeleteClient = (clientId: string) => {
+    removeDoc('clients', clientId);
+  };
+
+  const handleDeleteJob = (jobId: string) => {
+    removeDoc('jobs', jobId);
+  };
+
+  // Load client specs into Estimator
+  const handleLoadIntoEstimator = (input: Partial<EstimatorInput>) => {
+    setEstimatorInputData(input);
+    setActiveTab('estimator');
+  };
+
+  // Schedule for client from CRM
+  const handleScheduleForClient = (
+    client: Client,
+    scheduleDetails?: { date: string; timeSlot: string; notes?: string; agreedRate?: number; program?: CleaningProgram }
+  ) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newJob: JobAppointment = {
+      id: 'job-' + Date.now(),
+      clientId: client.id,
+      clientName: client.name,
+      clientPhone: client.phone,
+      address: client.address,
+      date: scheduleDetails?.date || todayStr,
+      timeSlot: scheduleDetails?.timeSlot || '8:00 AM - 11:30 AM (Morning)',
+      program: scheduleDetails?.program || client.defaultProgram,
+      condition: client.condition,
+      sqft: client.sqft,
+      bedrooms: client.bedrooms,
+      bathrooms: client.bathrooms,
+      selectedAddOns: client.defaultAddOns || [],
+      price: scheduleDetails?.agreedRate ?? client.agreedRate,
+      status: 'scheduled',
+      checklist: generateChecklistForJob(
+        scheduleDetails?.program || client.defaultProgram,
+        client.defaultAddOns || []
+      ),
+      notes: scheduleDetails?.notes || client.specialInstructions || '',
+    };
+    putDoc('jobs', newJob.id, newJob);
+    setActiveTab('schedule');
+  };
+
+  // Invoices actions
+  const handleMarkPaid = (invoiceId: string, method: Invoice['paymentMethod']) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    if (!inv) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    putDoc('invoices', invoiceId, { ...inv, status: 'paid', paidDate: todayStr, paymentMethod: method });
+  };
+
+  const handleCreateCustomInvoice = (invData: Omit<Invoice, 'id'>) => {
+    const newInvoice: Invoice = {
+      ...invData,
+      id: 'inv-' + Date.now(),
+    };
+    putDoc('invoices', newInvoice.id, newInvoice);
+  };
+
+  // Blocked Times actions
+  const handleAddBlockedTime = (blockedData: Omit<BlockedTime, 'id'>) => {
+    const newBlocked: BlockedTime = {
+      ...blockedData,
+      id: 'block-' + Date.now(),
+    };
+    putDoc('blockedTimes', newBlocked.id, newBlocked);
+  };
+
+  const handleDeleteBlockedTime = (id: string) => {
+    removeDoc('blockedTimes', id);
+  };
+
+  const handleUpdateJobRouteOrder = (jobId: string, routeOrder: number) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, { ...job, routeOrder });
+  };
+
+  // Direct Invoice generation from Estimator
+  const handleCreateInvoiceFromQuote = (
+    breakdown: QuoteBreakdown,
+    input: EstimatorInput,
+    clientInfo: {
+      name: string;
+      phone: string;
+      email?: string;
+      address: string;
+      date: string;
+    }
+  ) => {
+    const todayStr = clientInfo.date || new Date().toISOString().split('T')[0];
+    const dueDateStr = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+
+    const matchedClient = clients.find(
+      (c) => c.name.toLowerCase() === clientInfo.name.toLowerCase()
+    );
+
+    const lineItems = [
+      {
+        id: 'item-1',
+        description: `${input.program.toUpperCase()} Clean (${input.sqft.toLocaleString()} sq ft, ${input.bedrooms} bed, ${input.bathrooms} bath - ${input.condition} condition)`,
+        amount: breakdown.subtotal - breakdown.addOnsTotal,
+      },
+    ];
+
+    if (breakdown.addOnsTotal > 0 && input.selectedAddOns?.length) {
+      lineItems.push({
+        id: 'item-2',
+        description: `Add-ons: ${input.selectedAddOns.join(', ')}`,
+        amount: breakdown.addOnsTotal,
+      });
+    }
+
+    const newInvoice: Invoice = {
+      id: 'inv-' + Date.now(),
+      invoiceNumber: `CC-${Math.floor(1000 + Math.random() * 9000)}`,
+      clientId: matchedClient ? matchedClient.id : 'client-' + Date.now(),
+      clientName: clientInfo.name || (matchedClient ? matchedClient.name : 'Walk-in Client'),
+      clientPhone: clientInfo.phone || (matchedClient ? matchedClient.phone : ''),
+      clientEmail: clientInfo.email || (matchedClient ? matchedClient.email : ''),
+      clientAddress: clientInfo.address || (matchedClient ? matchedClient.address : 'Yuma, AZ'),
+      issueDate: todayStr,
+      dueDate: dueDateStr,
+      serviceDate: todayStr,
+      program: input.program,
+      items: lineItems,
+      subtotal: breakdown.subtotal,
+      discountTotal: breakdown.totalDiscount,
+      totalAmount: breakdown.finalPrice,
+      status: 'unpaid',
+      notes: `Clean Convictions flat rate service quote. Frequency: ${input.frequency}. 24-Hour Free Re-Clean Guarantee included.`,
+    };
+
+    putDoc('invoices', newInvoice.id, newInvoice);
+    setActiveTab('invoices');
+  };
+
+  // Settings action
+  const handleSaveSettings = (newSettings: PricingSettings) => {
+    putSettingsDoc(newSettings);
+  };
+
+  // Referral System Handlers
+  const handleAddReferral = (newRef: Omit<Referral, 'id'>) => {
+    const referral: Referral = {
+      ...newRef,
+      id: 'ref-' + Date.now(),
+      dateReferred: newRef.dateReferred || new Date().toISOString().split('T')[0],
+    };
+    putDoc('referrals', referral.id, referral);
+  };
+
+  const handleUpdateReferral = (updated: Referral) => {
+    putDoc('referrals', updated.id, updated);
+  };
+
+  const handleDeleteReferral = (refId: string) => {
+    removeDoc('referrals', refId);
+  };
+
+  const handleAwardCreditToClient = (clientId: string, amount: number) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    putDoc('clients', clientId, {
+      ...client,
+      referralCreditBalance: Math.max(0, (client.referralCreditBalance || 0) + amount),
+    });
+  };
+
+  // Expense tracking
+  const handleAddExpense = (data: Omit<Expense, 'id'>) => {
+    const newExpense: Expense = { ...data, id: 'exp-' + Date.now() };
+    putDoc('expenses', newExpense.id, newExpense);
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    removeDoc('expenses', id);
+  };
+
+  // Helper hours & pay
+  const handleAddShift = (data: Omit<HelperShift, 'id' | 'payAmount'>) => {
+    const newShift: HelperShift = {
+      ...data,
+      id: 'shift-' + Date.now(),
+      payAmount: Math.round(data.hours * data.hourlyRate * 100) / 100,
+    };
+    putDoc('helperShifts', newShift.id, newShift);
+  };
+
+  const handleMarkShiftPaid = (id: string) => {
+    const shift = helperShifts.find((s) => s.id === id);
+    if (!shift) return;
+    putDoc('helperShifts', id, { ...shift, paid: true, paidDate: new Date().toISOString().split('T')[0] });
+  };
+
+  const handleDeleteShift = (id: string) => {
+    removeDoc('helperShifts', id);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
+      {/* Top Navigation Bar */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        jobs={jobs}
+        invoices={invoices}
+        activeJobId={inProgressJob?.id}
+        pendingReferralsCount={referrals.filter((r) => r.status === 'pending').length}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 pb-16">
+        {activeTab === 'dashboard' && (
+          <DashboardView
+            clients={clients}
+            jobs={jobs}
+            invoices={invoices}
+            expenses={expenses}
+            helperShifts={helperShifts}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        )}
+
+        {activeTab === 'estimator' && (
+          <EstimatorView
+            settings={settings}
+            clients={clients}
+            onBookJob={handleBookJobFromEstimator}
+            onSaveClient={handleSaveClientFromEstimator}
+            onCreateInvoiceFromQuote={handleCreateInvoiceFromQuote}
+            initialInput={estimatorInputData}
+          />
+        )}
+
+        {activeTab === 'schedule' && (
+          <ScheduleView
+            jobs={jobs}
+            clients={clients}
+            blockedTimes={blockedTimes}
+            onUpdateJobStatus={handleUpdateJobStatus}
+            onOpenChecklist={handleOpenChecklist}
+            onCreateInvoiceFromJob={handleCreateInvoiceFromJob}
+            onAddJob={handleAddJob}
+            onDeleteJob={handleDeleteJob}
+            onAddBlockedTime={handleAddBlockedTime}
+            onDeleteBlockedTime={handleDeleteBlockedTime}
+            onUpdateJobRouteOrder={handleUpdateJobRouteOrder}
+          />
+        )}
+
+        {activeTab === 'checklist' && (
+          <ChecklistView
+            jobs={jobs}
+            selectedJobId={selectedJobIdForChecklist}
+            onToggleCheckItem={handleToggleCheckItem}
+            onMarkAllCompleted={handleMarkAllCompleted}
+            onSaveJobNotes={handleSaveJobNotes}
+            onCompleteJob={handleCompleteJob}
+          />
+        )}
+
+        {activeTab === 'clients' && (
+          <ClientsView
+            clients={clients}
+            jobs={jobs}
+            invoices={invoices}
+            settings={settings}
+            onAddClient={handleAddClient}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            onDeleteJob={handleDeleteJob}
+            onLoadIntoEstimator={handleLoadIntoEstimator}
+            onScheduleForClient={handleScheduleForClient}
+          />
+        )}
+
+        {activeTab === 'invoices' && (
+          <InvoicesView
+            invoices={invoices}
+            clients={clients}
+            onMarkPaid={handleMarkPaid}
+            onCreateInvoice={handleCreateCustomInvoice}
+          />
+        )}
+
+        {activeTab === 'expenses' && (
+          <ExpensesView
+            expenses={expenses}
+            clients={clients}
+            jobs={jobs}
+            onAddExpense={handleAddExpense}
+            onDeleteExpense={handleDeleteExpense}
+          />
+        )}
+
+        {activeTab === 'team' && (
+          <TeamView
+            helperShifts={helperShifts}
+            jobs={jobs}
+            settings={settings}
+            onAddShift={handleAddShift}
+            onMarkShiftPaid={handleMarkShiftPaid}
+            onDeleteShift={handleDeleteShift}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            settings={settings}
+            onSaveSettings={handleSaveSettings}
+          />
+        )}
+
+        {activeTab === 'referrals' && (
+          <ReferralsView
+            referrals={referrals}
+            clients={clients}
+            settings={settings}
+            onAddReferral={handleAddReferral}
+            onUpdateReferral={handleUpdateReferral}
+            onDeleteReferral={handleDeleteReferral}
+            onAwardCreditToClient={handleAwardCreditToClient}
+            onUpdateClient={handleUpdateClient}
+            onNavigateToEstimator={(info) => {
+              setEstimatorInputData((prev) => ({
+                ...prev,
+                referralCode: info.referralCode,
+              }));
+              setActiveTab('estimator');
+            }}
+          />
+        )}
+      </main>
+
+      {/* Bottom Sticky Status Footer */}
+      <footer className="bg-white border-t border-slate-200 py-3 px-4 sm:px-8 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 print:hidden">
+        <div className="flex items-center space-x-3">
+          <span className="font-semibold text-slate-800">Clean Convictions Solo Operations</span>
+          <span>•</span>
+          <span>Yuma, Arizona</span>
+          <span>•</span>
+          <a
+            href="https://cleanconvictions.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-700 hover:underline font-medium"
+          >
+            cleanconvictions.com
+          </a>
+        </div>
+        <div className="flex items-center space-x-3 text-[11px] text-slate-400">
+          <span>24-Hour Free Re-Clean Guarantee Standard</span>
+          <span>•</span>
+          <span>Synced live</span>
+          <span>•</span>
+          <span className="text-slate-500">{userEmail}</span>
+          <button
+            onClick={signOutUser}
+            className="text-slate-500 hover:text-rose-600 underline underline-offset-2"
+          >
+            Sign out
+          </button>
+        </div>
+      </footer>
+    </div>
+  );
+}
