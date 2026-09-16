@@ -94,7 +94,7 @@ export default {
     );
 
     try {
-      const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+      const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
         messages: [
           { role: "system", content: SYSTEM_PROMPTS[mode] },
           { role: "user", content: userParts.join("\n\n") },
