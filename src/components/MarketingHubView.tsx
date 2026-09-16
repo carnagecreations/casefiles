@@ -43,6 +43,24 @@ const MODE_META: Record<MarketingDraftMode, { label: string; icon: React.ReactNo
 const TONES = ['Friendly', 'Professional', 'Apologetic / Fix-it', 'Enthusiastic', 'Brief & to the point'];
 const PLATFORMS = ['Facebook', 'Instagram', 'Google Reviews', 'Nextdoor', 'Email', 'Other'];
 
+const POST_IDEAS: string[] = [
+  'Promote our seasonal deep-clean special — mention a limited-time discount',
+  'Introduce the business: who we are, what areas of Yuma we serve, and what makes us different',
+  'Before & after post — describe a recent job that had a big transformation',
+  'Remind past clients to book before the holidays fill up the schedule',
+  'Share a 5-star review from a happy client and thank them for it',
+  'Announce we are currently accepting new clients / have open slots this month',
+  'Quick tip post: how to keep a home cleaner between our visits',
+  'Promote the $25 referral program — refer a friend, both get credit',
+  'Behind-the-scenes post introducing the team / a day in the life of a cleaner',
+  'Ask happy clients to leave us a Google review, and explain why it helps a small business',
+  'Post about move-in/move-out cleaning season for renters and realtors',
+  'Highlight a specific add-on service (inside fridge, inside oven, window tracks, etc.)',
+  'Thank the community for supporting a local, women-owned business',
+  'Post about pet-friendly cleaning — reassure pet owners we are careful and experienced',
+  'Share a satisfying checklist / cleaning routine we use so people see the thoroughness',
+];
+
 export const MarketingHubView: React.FC<MarketingHubViewProps> = ({ drafts, settings, onSaveDraft, onDeleteDraft }) => {
   const [mode, setMode] = useState<MarketingDraftMode>('reply_post');
   const [context, setContext] = useState('');
@@ -151,6 +169,28 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({ drafts, sett
           </button>
         ))}
       </div>
+
+      {/* Post idea suggestions */}
+      {mode === 'create_post' && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-slate-500 mb-2">Need an idea? Tap one to use it:</p>
+          <div className="flex flex-wrap gap-2">
+            {POST_IDEAS.map((idea) => (
+              <button
+                key={idea}
+                onClick={() => setContext(idea)}
+                className={`text-xs px-3 py-1.5 rounded-full border cursor-pointer transition-colors ${
+                  context === idea
+                    ? 'bg-slate-900 border-slate-900 text-white'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-900'
+                }`}
+              >
+                {idea.length > 48 ? `${idea.slice(0, 48)}…` : idea}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Input form */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 mb-6">
