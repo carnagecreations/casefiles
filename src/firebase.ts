@@ -68,17 +68,38 @@ export function syncDoc<T>(
   );
 }
 
+/**
+ * Firestore's setDoc REJECTS any field whose value is `undefined` (throws
+ * synchronously, aborting the write with nothing shown on screen — the
+ * exact "nothing happens when I click save" symptom). Form code across
+ * this app uses `foo || undefined` for optional fields, so every write
+ * goes through this to strip those out before it ever reaches Firestore.
+ */
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
 /** Writes/overwrites one document in a collection, using the item's own id. */
 export function putDoc(collectionName: string, id: string, data: DocumentData): Promise<void> {
   const { id: _drop, ...rest } = data as any;
-  return setDoc(doc(db, collectionName, id), rest);
+  return setDoc(doc(db, collectionName, id), stripUndefinedDeep(rest)).catch((err) => {
+    console.error(`Failed to save to ${collectionName}/${id}:`, err);
+    throw err;
+  });
 }
 
 export function removeDoc(collectionName: string, id: string): Promise<void> {
-  return deleteDoc(doc(db, collectionName, id));
+  return deleteDoc(doc(db, collectionName, id)).catch((err) => {
+    console.error(`Failed to delete ${collectionName}/${id}:`, err);
+    throw err;
+  });
 }
 
 /** Writes the single shared settings document. */
 export function putSettingsDoc(data: DocumentData): Promise<void> {
-  return setDoc(doc(db, 'settings', 'pricing'), data);
+  return setDoc(doc(db, 'settings', 'pricing'), stripUndefinedDeep(data)).catch((err) => {
+    console.error('Failed to save settings:', err);
+    throw err;
+  });
 }
