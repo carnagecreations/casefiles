@@ -171,7 +171,7 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({
 
       {/* Categories Tabs & Quick Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center flex-wrap gap-1.5">
           {categories.map((cat) => (
             <button
               key={cat.id}
