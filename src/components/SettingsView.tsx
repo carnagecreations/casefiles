@@ -309,6 +309,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <p className="text-[10px] text-slate-400 mt-2">Pre-fills the Team Hours form — you can override per entry.</p>
         </div>
 
+        {/* Marketing AI */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+            Marketing AI
+          </h3>
+          <p className="text-[11px] text-slate-500 mb-3">
+            Powers the Marketing tab's AI drafting. Deploy the Cloudflare Worker from the{' '}
+            <code className="bg-slate-100 px-1 rounded">cloudflare-ai-worker</code> folder you were sent, then paste
+            its details here.
+          </p>
+          <div className="grid grid-cols-1 gap-3 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">AI Endpoint URL</label>
+              <input
+                type="text"
+                value={formSettings.marketingAiEndpoint || ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, marketingAiEndpoint: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-[11px]"
+                placeholder="https://casefiles-ai.your-subdomain.workers.dev"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Shared Secret</label>
+              <input
+                type="password"
+                value={formSettings.marketingAiSecret || ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, marketingAiSecret: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-[11px]"
+                placeholder="The APP_SECRET value you set on the Worker"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Add-Ons Catalog Editor */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">

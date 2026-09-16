@@ -14,6 +14,7 @@ import {
   UserCog,
   Menu,
   X,
+  Megaphone,
 } from 'lucide-react';
 import { JobAppointment, Invoice } from '../types';
 
@@ -26,6 +27,7 @@ export type AppTab =
   | 'invoices'
   | 'expenses'
   | 'team'
+  | 'marketing'
   | 'settings'
   | 'referrals';
 
@@ -89,6 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'invoices', label: 'Invoices & Revenue', icon: <Receipt className="w-4 h-4" /> },
     { id: 'expenses', label: 'Expenses', icon: <Wallet className="w-4 h-4" /> },
     { id: 'team', label: 'Team', icon: <UserCog className="w-4 h-4" /> },
+    { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" /> },
     {
       id: 'referrals',
       label: 'Referral System',

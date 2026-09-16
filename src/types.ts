@@ -186,6 +186,20 @@ export interface PricingSettings {
   addOns: AddOnDefinition[];
   helperName?: string; // default name pre-filled on new hour entries
   helperHourlyRate?: number; // default $/hr pre-filled on new hour entries
+  marketingAiEndpoint?: string; // Cloudflare Worker URL for the Marketing AI drafting tool
+  marketingAiSecret?: string; // shared secret sent as the X-App-Secret header
+}
+
+export type MarketingDraftMode = 'reply_email' | 'reply_post' | 'create_post';
+
+export interface MarketingDraft {
+  id: string;
+  mode: MarketingDraftMode;
+  platform?: string;
+  tone?: string;
+  inputContext: string;
+  draftText: string;
+  createdAt: string; // YYYY-MM-DD
 }
 
 export type ExpenseCategory =

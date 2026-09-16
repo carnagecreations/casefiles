@@ -11,6 +11,7 @@ import {
   Referral,
   Expense,
   HelperShift,
+  MarketingDraft,
 } from './types';
 import {
   generateReferralCode,
@@ -25,6 +26,7 @@ import { syncCollection, syncDoc, putDoc, removeDoc, putSettingsDoc } from './fi
 import { signOutUser } from './components/AuthGate';
 import { Navbar, AppTab } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
+import { MarketingHubView } from './components/MarketingHubView';
 import { EstimatorView } from './components/EstimatorView';
 import { ScheduleView } from './components/ScheduleView';
 import { ChecklistView } from './components/ChecklistView';
@@ -52,6 +54,7 @@ export default function App({ userEmail }: AppProps) {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [helperShifts, setHelperShifts] = useState<HelperShift[]>([]);
+  const [marketingDrafts, setMarketingDrafts] = useState<MarketingDraft[]>([]);
 
   // Active job selected for checklist walkthrough
   const [selectedJobIdForChecklist, setSelectedJobIdForChecklist] = useState<string>('');
@@ -69,6 +72,7 @@ export default function App({ userEmail }: AppProps) {
       syncCollection<Referral>('referrals', setReferrals),
       syncCollection<Expense>('expenses', setExpenses),
       syncCollection<HelperShift>('helperShifts', setHelperShifts),
+      syncCollection<MarketingDraft>('marketingDrafts', setMarketingDrafts),
       syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, setSettings),
     ];
     return () => unsubs.forEach((u) => u());
@@ -591,6 +595,20 @@ export default function App({ userEmail }: AppProps) {
     removeDoc('helperShifts', id);
   };
 
+  // Marketing Hub
+  const handleSaveMarketingDraft = (data: Omit<MarketingDraft, 'id' | 'createdAt'>) => {
+    const newDraft: MarketingDraft = {
+      ...data,
+      id: 'draft-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('marketingDrafts', newDraft.id, newDraft);
+  };
+
+  const handleDeleteMarketingDraft = (id: string) => {
+    removeDoc('marketingDrafts', id);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
       {/* Top Navigation Bar */}
@@ -696,6 +714,15 @@ export default function App({ userEmail }: AppProps) {
             onAddShift={handleAddShift}
             onMarkShiftPaid={handleMarkShiftPaid}
             onDeleteShift={handleDeleteShift}
+          />
+        )}
+
+        {activeTab === 'marketing' && (
+          <MarketingHubView
+            drafts={marketingDrafts}
+            settings={settings}
+            onSaveDraft={handleSaveMarketingDraft}
+            onDeleteDraft={handleDeleteMarketingDraft}
           />
         )}
 

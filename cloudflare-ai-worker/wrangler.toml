@@ -1,0 +1,12 @@
+name = "casefiles-ai"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[ai]
+binding = "AI"
+
+# After deploying, set the shared secret with:
+#   wrangler secret put APP_SECRET
+# (Only needed if you deploy via the CLI instead of the dashboard editor —
+# the dashboard's Settings -> Variables and Secrets page does the same
+# thing with no command line.)
