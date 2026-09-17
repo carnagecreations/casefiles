@@ -51,6 +51,8 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<'ok' | 'error' | ''>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const configured = isZohoEmailConfigured(settings);
@@ -101,6 +103,7 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
   // Reload messages whenever the active folder changes, and poll only the Inbox.
   useEffect(() => {
     if (!activeFolderId) return;
+    setSelectedIds(new Set());
     loadMessages(activeFolderId);
     if (pollRef.current) clearInterval(pollRef.current);
     const folder = folders.find((f) => f.folderId === activeFolderId);
@@ -144,6 +147,44 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = messages.length > 0 && selectedIds.size === messages.length;
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(messages.map((m) => m.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const label = isTrash
+      ? `Permanently delete ${selectedIds.size} email${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`
+      : `Delete ${selectedIds.size} email${selectedIds.size > 1 ? 's' : ''}? They'll move to Trash in Zoho Mail.`;
+    if (!window.confirm(label)) return;
+    setBulkDeleting(true);
+    const ids: string[] = [...selectedIds];
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        await deleteMessage(settings, id, activeFolderId, isTrash);
+      } catch {
+        failed.push(id);
+      }
+    }
+    setMessages((prev) => prev.filter((m) => !ids.includes(m.id) || failed.includes(m.id)));
+    setSelectedIds(new Set(failed));
+    if (selected && ids.includes(selected.id) && !failed.includes(selected.id)) setSelected(null);
+    if (failed.length) setError(`Deleted ${ids.length - failed.length} of ${ids.length} — ${failed.length} failed.`);
+    setBulkDeleting(false);
   };
 
   const startReply = () => {
@@ -230,6 +271,33 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
         <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg text-xs">{error}</div>
       )}
 
+      {configured && messages.length > 0 && (
+        <div className="flex items-center justify-between mb-2 px-1">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer"
+            />
+            {allSelected ? 'Deselect all' : 'Select all'}
+            {selectedIds.size > 0 && <span className="text-slate-400 font-normal">({selectedIds.size} selected)</span>}
+          </label>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white cursor-pointer"
+            >
+              {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {bulkDeleting
+                ? 'Deleting…'
+                : `Delete ${selectedIds.size}${isTrash ? ' Permanently' : ''}`}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs divide-y divide-slate-100">
         {configured && !loading && messages.length === 0 && !error && (
           <p className="p-6 text-center text-xs text-slate-400">Nothing in this folder.</p>
@@ -237,8 +305,17 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`w-full flex items-start gap-2 hover:bg-slate-50 ${m.isUnread ? 'bg-emerald-50/40' : ''}`}
+            className={`w-full flex items-start gap-2 hover:bg-slate-50 ${m.isUnread ? 'bg-emerald-50/40' : ''} ${
+              selectedIds.has(m.id) ? 'bg-indigo-50/60' : ''
+            }`}
           >
+            <input
+              type="checkbox"
+              checked={selectedIds.has(m.id)}
+              onChange={() => toggleSelect(m.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-3.5 h-3.5 mt-4 ml-4 shrink-0 rounded border-slate-300 cursor-pointer"
+            />
             <button onClick={() => openMessage(m)} className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3 cursor-pointer">
               <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${m.isUnread ? 'bg-emerald-500' : 'bg-transparent'}`} />
               <div className="min-w-0 flex-1">
