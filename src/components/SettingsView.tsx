@@ -379,6 +379,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
+        {/* Business Contact */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+            Business Contact (Google Voice & Zoho Mail)
+          </h3>
+          <p className="text-[11px] text-slate-500 mb-3">
+            Used to power one-click "Text via Google Voice" and "Email via Zoho" buttons in the Marketing Hub and elsewhere in the app.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Google Voice Number</label>
+              <input
+                type="text"
+                value={formSettings.businessPhone || ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, businessPhone: e.target.value }))}
+                className="w-full font-bold text-slate-900 px-3 py-2 border border-slate-300 rounded-lg"
+                placeholder="(928) 555-0100"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Zoho Business Email</label>
+              <input
+                type="email"
+                value={formSettings.businessEmail || ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, businessEmail: e.target.value }))}
+                className="w-full font-bold text-slate-900 px-3 py-2 border border-slate-300 rounded-lg"
+                placeholder="you@cleanconvictions.com"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-2">
+            Neither Google Voice nor Zoho Mail offers a way for an app to send on your behalf automatically — these links open your Google Voice texting app or Zoho Mail's compose window pre-filled, so sending is still one tap by you.
+          </p>
+        </div>
+
         {/* Marketing AI */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">

@@ -65,7 +65,14 @@ export default function App({ userEmail }: AppProps) {
 
   // Pre-fill passed to the Marketing Hub (e.g. "Request a Review" quick action)
   const [marketingPrefill, setMarketingPrefill] = useState<
-    { mode: 'reply_email' | 'reply_post' | 'create_post'; context: string } | undefined
+    | {
+        mode: 'reply_email' | 'reply_post' | 'create_post';
+        context: string;
+        recipientEmail?: string;
+        recipientPhone?: string;
+        subject?: string;
+      }
+    | undefined
   >();
 
   // Subscribe to live Firestore data once, for the lifetime of the app shell.
@@ -672,6 +679,9 @@ export default function App({ userEmail }: AppProps) {
     setMarketingPrefill({
       mode: 'create_post',
       context: `Write a short, friendly message asking ${client.name} to leave us a Google review after their recent cleaning. Mention we'd really appreciate it and include a quick thank-you.`,
+      recipientEmail: client.email || undefined,
+      recipientPhone: client.phone || undefined,
+      subject: 'We would love your feedback!',
     });
     setActiveTab('marketing');
   };
@@ -715,6 +725,9 @@ export default function App({ userEmail }: AppProps) {
     setMarketingPrefill({
       mode: 'reply_email',
       context: `Write a polite but firm payment reminder to ${invoice.clientName} for invoice ${invoice.invoiceNumber}, $${invoice.totalAmount} due ${invoice.dueDate}, for the cleaning service completed on ${invoice.serviceDate}.`,
+      recipientEmail: invoice.clientEmail || undefined,
+      recipientPhone: invoice.clientPhone || undefined,
+      subject: `Payment reminder — Invoice ${invoice.invoiceNumber}`,
     });
     setActiveTab('marketing');
   };
@@ -724,6 +737,8 @@ export default function App({ userEmail }: AppProps) {
     setMarketingPrefill({
       mode: 'reply_email',
       context: `Write a short, friendly "we're on our way" heads-up message to ${job.clientName} for their ${job.timeSlot} cleaning appointment today.`,
+      recipientPhone: job.clientPhone || undefined,
+      subject: "We're on our way!",
     });
     setActiveTab('marketing');
   };
@@ -796,6 +811,9 @@ export default function App({ userEmail }: AppProps) {
     setMarketingPrefill({
       mode: 'reply_email',
       context: `Write a short, warm thank-you message to ${invoice.clientName} for paying invoice ${invoice.invoiceNumber} for their recent cleaning.`,
+      recipientEmail: invoice.clientEmail || undefined,
+      recipientPhone: invoice.clientPhone || undefined,
+      subject: 'Thank you!',
     });
     setActiveTab('marketing');
   };
@@ -1001,7 +1019,7 @@ export default function App({ userEmail }: AppProps) {
 
       {/* Bottom Sticky Status Footer */}
       <footer className="bg-white border-t border-slate-200 py-3 px-4 sm:px-8 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 print:hidden">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-wrap gap-y-1">
           <span className="font-semibold text-slate-800">Clean Convictions Solo Operations</span>
           <span>•</span>
           <span>Yuma, Arizona</span>
@@ -1014,6 +1032,22 @@ export default function App({ userEmail }: AppProps) {
           >
             cleanconvictions.com
           </a>
+          {settings.businessPhone && (
+            <>
+              <span>•</span>
+              <a href={`tel:${settings.businessPhone}`} className="text-emerald-700 hover:underline font-medium">
+                {settings.businessPhone}
+              </a>
+            </>
+          )}
+          {settings.businessEmail && (
+            <>
+              <span>•</span>
+              <a href={`mailto:${settings.businessEmail}`} className="text-emerald-700 hover:underline font-medium">
+                {settings.businessEmail}
+              </a>
+            </>
+          )}
         </div>
         <div className="flex items-center space-x-3 text-[11px] text-slate-400">
           <span>24-Hour Free Re-Clean Guarantee Standard</span>

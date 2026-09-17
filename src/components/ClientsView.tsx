@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { generateReferralCode } from '../utils/starterData';
 import { exportToCSV } from '../utils/csvExport';
+import { buildSmsLink, buildZohoComposeLink } from '../utils/contactLinks';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -432,9 +433,31 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     <MapPin className="w-3.5 h-3.5 mr-1.5 text-slate-400 shrink-0" />
                     <span className="truncate">{client.address}</span>
                   </div>
-                  <div className="flex items-center text-slate-700">
-                    <Phone className="w-3.5 h-3.5 mr-1.5 text-slate-400 shrink-0" />
+                  <div className="flex items-center text-slate-700 gap-2">
+                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>{client.phone}</span>
+                    {client.phone && (
+                      <a
+                        href={buildSmsLink(client.phone, '')}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 underline"
+                        title="Text via Google Voice"
+                      >
+                        Text
+                      </a>
+                    )}
+                    {client.email && (
+                      <a
+                        href={buildZohoComposeLink(client.email, '', '')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 underline"
+                        title="Email via Zoho"
+                      >
+                        Email
+                      </a>
+                    )}
                   </div>
                 </div>
 

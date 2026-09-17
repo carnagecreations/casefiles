@@ -211,6 +211,8 @@ export interface PricingSettings {
   mileageRate?: number; // $/mile used to auto-calc a gas expense from logged mileage
   lateFeePercent?: number; // % of subtotal applied as a late fee on overdue invoices
   extraChecklistItems?: string[]; // always-included checklist tasks appended to every job
+  businessPhone?: string; // Google Voice number, used for click-to-text links
+  businessEmail?: string; // Zoho Mail business address, used for "Email via Zoho" links
 }
 
 export type MarketingDraftMode = 'reply_email' | 'reply_post' | 'create_post';

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { JobAppointment, Client, BlockedTime, CleaningProgram, PricingSettings } from '../types';
 import { optimizeDailyRoute, RouteOptimizationResult } from '../utils/routeOptimizer';
+import { buildSmsLink } from '../utils/contactLinks';
 import {
   Calendar,
   Calendar as CalendarIcon,
@@ -773,6 +774,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                             >
                               <Phone className="w-3 h-3 mr-1 text-slate-400" />
                               {job.clientPhone}
+                            </a>
+                          )}
+
+                          {job.clientPhone && (
+                            <a
+                              href={buildSmsLink(job.clientPhone, '')}
+                              className="text-indigo-600 hover:text-indigo-800 underline"
+                              title="Text via Google Voice"
+                            >
+                              Text
                             </a>
                           )}
                         </div>
