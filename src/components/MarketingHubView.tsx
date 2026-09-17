@@ -13,6 +13,7 @@ import {
   Send,
 } from 'lucide-react';
 import { buildSmsLink, buildZohoComposeLink } from '../utils/contactLinks';
+import { isZohoEmailConfigured, sendEmail } from '../utils/zohoEmailApi';
 
 interface MarketingHubViewProps {
   drafts: MarketingDraft[];
@@ -90,6 +91,8 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [subject, setSubject] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendResult, setSendResult] = useState<'ok' | 'error' | ''>('');
 
   useEffect(() => {
     if (prefill) {
@@ -104,6 +107,21 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
   }, [prefill]);
 
   const isConfigured = !!(settings.marketingAiEndpoint && settings.marketingAiSecret);
+  const canAutoSendEmail = isZohoEmailConfigured(settings);
+
+  const handleSendNow = async () => {
+    if (!recipientEmail || !generatedText.trim()) return;
+    setIsSending(true);
+    setSendResult('');
+    try {
+      await sendEmail(settings, recipientEmail, subject || 'Clean Convictions', generatedText.replace(/\n/g, '<br/>'));
+      setSendResult('ok');
+    } catch {
+      setSendResult('error');
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!context.trim()) return;
@@ -161,7 +179,8 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
       <div className="mb-6">
         <h2 className="text-xl font-bold text-slate-900">Marketing Hub</h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          AI-drafted replies and posts — review and edit before you send anything. Nothing is ever posted or sent automatically.
+          AI-drafted replies and posts — review and edit, then send. Social posts always require you to paste them in yourself;
+          {canAutoSendEmail ? ' emails can go out immediately via "Send Now."' : ' emails open a Zoho compose window for you to send.'}
         </p>
       </div>
 
@@ -336,7 +355,8 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50"
           />
           <p className="text-[10px] text-slate-400 mt-2">
-            Edit freely above, then send it — nothing goes out automatically, this just opens it ready to go.
+            Edit freely above, then send it.
+            {canAutoSendEmail ? ' "Send Now" emails it immediately — no extra step.' : ' Texts still open Google Voice for you to send by hand.'}
           </p>
 
           <div className="flex flex-wrap gap-2 mt-3">
@@ -349,6 +369,16 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
                 Text via Google Voice
               </a>
             )}
+            {recipientEmail && canAutoSendEmail && (
+              <button
+                onClick={handleSendNow}
+                disabled={isSending}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {isSending ? 'Sending…' : 'Send Now (Zoho)'}
+              </button>
+            )}
             {recipientEmail && (
               <a
                 href={buildZohoComposeLink(recipientEmail, subject || 'Clean Convictions', generatedText)}
@@ -357,13 +387,15 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
                 className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1.5"
               >
                 <Mail className="w-3.5 h-3.5" />
-                Email via Zoho
+                {canAutoSendEmail ? 'Open in Zoho Mail Instead' : 'Email via Zoho'}
               </a>
             )}
           </div>
+          {sendResult === 'ok' && <p className="text-xs text-emerald-600 mt-2 font-semibold">Sent.</p>}
+          {sendResult === 'error' && <p className="text-xs text-rose-600 mt-2 font-semibold">Send failed — try again, or use "Open in Zoho Mail Instead".</p>}
           {!recipientPhone && !recipientEmail && (
             <p className="text-[10px] text-slate-400 mt-2">
-              Add a recipient phone or email above to send this directly via Google Voice or Zoho Mail.
+              Add a recipient phone or email above to send this directly.
             </p>
           )}
         </div>

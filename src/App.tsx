@@ -28,6 +28,7 @@ import { signOutUser } from './components/AuthGate';
 import { Navbar, AppTab } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { MarketingHubView } from './components/MarketingHubView';
+import { InboxView } from './components/InboxView';
 import { EstimatorView } from './components/EstimatorView';
 import { ScheduleView } from './components/ScheduleView';
 import { ChecklistView } from './components/ChecklistView';
@@ -74,6 +75,7 @@ export default function App({ userEmail }: AppProps) {
       }
     | undefined
   >();
+  const [unreadEmailCount, setUnreadEmailCount] = useState(0);
 
   // Subscribe to live Firestore data once, for the lifetime of the app shell.
   useEffect(() => {
@@ -865,6 +867,7 @@ export default function App({ userEmail }: AppProps) {
         clients={clients}
         activeJobId={inProgressJob?.id}
         pendingReferralsCount={referrals.filter((r) => r.status === 'pending').length}
+        unreadEmailCount={unreadEmailCount}
       />
 
       {/* Main Content Area */}
@@ -994,6 +997,10 @@ export default function App({ userEmail }: AppProps) {
             prefill={marketingPrefill}
             onPrefillConsumed={() => setMarketingPrefill(undefined)}
           />
+        )}
+
+        {activeTab === 'inbox' && (
+          <InboxView settings={settings} onUnreadCountChange={setUnreadEmailCount} />
         )}
 
         {activeTab === 'settings' && (

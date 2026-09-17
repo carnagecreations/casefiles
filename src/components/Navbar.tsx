@@ -16,6 +16,7 @@ import {
   X,
   Megaphone,
   Search,
+  Inbox as InboxIcon,
 } from 'lucide-react';
 import { JobAppointment, Invoice, Client } from '../types';
 
@@ -29,6 +30,7 @@ export type AppTab =
   | 'expenses'
   | 'team'
   | 'marketing'
+  | 'inbox'
   | 'settings'
   | 'referrals';
 
@@ -40,6 +42,7 @@ interface NavbarProps {
   clients?: Client[];
   activeJobId?: string;
   pendingReferralsCount?: number;
+  unreadEmailCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -49,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   invoices,
   clients = [],
   activeJobId,
+  unreadEmailCount = 0,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -112,6 +116,21 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'expenses', label: 'Expenses', icon: <Wallet className="w-4 h-4" /> },
     { id: 'team', label: 'Team', icon: <UserCog className="w-4 h-4" /> },
     { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" /> },
+    {
+      id: 'inbox',
+      label: 'Inbox',
+      icon: <InboxIcon className="w-4 h-4" />,
+      badge:
+        unreadEmailCount > 0 ? (
+          <span
+            className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
+              activeTab === 'inbox' ? 'bg-slate-900 text-emerald-400' : 'bg-emerald-500 text-slate-950'
+            }`}
+          >
+            {unreadEmailCount}
+          </span>
+        ) : undefined,
+    },
     {
       id: 'referrals',
       label: 'Referral System',
