@@ -704,6 +704,22 @@ export default function App({ userEmail }: AppProps) {
     const contactFirstName = partner.contactName ? partner.contactName.split(' ')[0] : 'there';
     const code = partner.referralCode || slugifyPartnerCode(partner.businessName);
     const bookingLink = `https://www.cleanconvictions.com/book?ref=${code}`;
+
+    if (partner.type === 'realtor') {
+      // Realtors refer per-transaction (a listing, a closing) rather than
+      // per-resident — the pitch and the payoff for them are both different.
+      const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. I wanted to reach out about partnering with ${partner.businessName} on listing-prep and closing cleanings.\n\nHere's the offer: any client of yours who books through this link gets $25 off — ${bookingLink} — or they can just mention code ${code}. That covers move-out cleans before a listing goes live (homes show better and sell faster clean) and move-in cleans for your buyers at closing.\n\nFor you: every 2 referrals earns a free listing-prep cleaning you can use on your own listings, every 5 earns a free "closing gift" cleaning to hand a client at closing (a nice touch that keeps your name on their mind), and at 10 you get priority same-week scheduling on every listing plus a shoutout as a Preferred Cleaning Partner on our site and social.\n\nCan I drop off a few cards or QR flyers, or email you something to include in your closing packets? Happy to chat whenever works for you. Thank you!`;
+      setMarketingPrefill({
+        mode: 'create_post',
+        context,
+        recipientEmail: partner.email || undefined,
+        recipientPhone: partner.phone || undefined,
+        subject: `Cleaning Partnership for ${partner.businessName} Listings & Closings`,
+      });
+      setActiveTab('marketing');
+      return;
+    }
+
     const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who books through this link gets $25 off their first cleaning automatically — ${bookingLink} — or they can just mention code ${code} when they call or text us. They get a fully clean, move-in-ready home the day they arrive for the season.\n\nFor you: once a few residents book, we'll clean your office or a common area free as a thank-you, and it keeps growing the more residents you send our way. I can drop off a few flyers or QR code cards, or email you something to include in a welcome packet — whatever's easiest.\n\nWould you be open to that? Happy to chat whenever works for you. Thank you!`;
     setMarketingPrefill({
       mode: 'create_post',

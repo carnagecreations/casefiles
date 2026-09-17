@@ -61,16 +61,43 @@ const buildQrImageUrl = (link: string) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(link)}`;
 
 // Milestone rewards for the partner themselves — a reason to keep sending
-// residents our way beyond the first referral.
-const REWARD_TIERS: { count: number; reward: string }[] = [
-  { count: 3, reward: 'A free standard cleaning for your office or clubhouse' },
-  { count: 6, reward: '$75 credit toward your common-area cleaning' },
-  { count: 10, reward: 'Ongoing quarterly free cleaning for your office, for as long as we\'re partnered' },
-];
+// people our way beyond the first referral. Realtors don't manage a
+// property with an office/clubhouse to clean, and they refer per-transaction
+// (a listing prep, a closing) rather than per-resident, so they get their
+// own track built around what actually helps their business: listings that
+// show better, a closing-gift touch for their clients, and visibility.
+const REWARD_TIERS_BY_TYPE: Record<PartnerType, { count: number; reward: string }[]> = {
+  property_manager: [
+    { count: 3, reward: 'A free standard cleaning for your office or clubhouse' },
+    { count: 6, reward: '$75 credit toward your common-area cleaning' },
+    { count: 10, reward: 'Ongoing quarterly free cleaning for your office, for as long as we\'re partnered' },
+  ],
+  rv_park: [
+    { count: 3, reward: 'A free standard cleaning for your office or clubhouse' },
+    { count: 6, reward: '$75 credit toward your common-area cleaning' },
+    { count: 10, reward: 'Ongoing quarterly free cleaning for your office, for as long as we\'re partnered' },
+  ],
+  hoa: [
+    { count: 3, reward: 'A free standard cleaning for your clubhouse or common area' },
+    { count: 6, reward: '$75 credit toward your common-area cleaning' },
+    { count: 10, reward: 'Ongoing quarterly free cleaning for your clubhouse, for as long as we\'re partnered' },
+  ],
+  realtor: [
+    { count: 2, reward: 'A free move-out/listing-prep cleaning for your next listing' },
+    { count: 5, reward: 'A free "closing gift" cleaning to hand any client at closing' },
+    { count: 10, reward: 'Priority same-week scheduling on every listing, plus a shoutout as a Preferred Cleaning Partner on our site & social' },
+  ],
+  other: [
+    { count: 3, reward: 'A free standard cleaning as a thank-you' },
+    { count: 6, reward: '$75 service credit' },
+    { count: 10, reward: 'Ongoing quarterly free cleaning, for as long as we\'re partnered' },
+  ],
+};
 
-const getRewardProgress = (referredCount: number) => {
-  const next = REWARD_TIERS.find((t) => referredCount < t.count);
-  const lastEarned = [...REWARD_TIERS].reverse().find((t) => referredCount >= t.count);
+const getRewardProgress = (referredCount: number, type: PartnerType) => {
+  const tiers = REWARD_TIERS_BY_TYPE[type] || REWARD_TIERS_BY_TYPE.other;
+  const next = tiers.find((t) => referredCount < t.count);
+  const lastEarned = [...tiers].reverse().find((t) => referredCount >= t.count);
   return { next, lastEarned };
 };
 
@@ -111,6 +138,39 @@ const OBJECTIONS: { objection: string; rebuttal: string }[] = [
   },
 ];
 
+// A separate pitch for realtors — they refer per-transaction (a listing
+// going up, a closing) rather than per-resident, so the framing is about
+// selling homes faster and a nice touch at closing, not a seasonal special.
+const REALTOR_PITCH_SCRIPT = {
+  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on listing-prep and closing cleanings.`,
+  body: `We do move-out cleans before a listing goes live and move-in cleans for your buyers at closing. Homes show and photograph better clean, and it's one less thing your seller has to think about. Any client of yours gets $25 off when they mention ${'{business name}'} or use your code. For you, every couple referrals earns a free listing-prep cleaning you can use on your own listings, and a few more earns a free "closing gift" cleaning you can hand a client at closing — a nice touch that keeps your name on their mind.`,
+  ask: `Would it be alright if I left a few cards, or emailed you something you could drop into your closing packets?`,
+  close: `Great — I'll get that over to you today. Congrats on the business, and thanks for your time!`,
+};
+
+const REALTOR_OBJECTIONS: { objection: string; rebuttal: string }[] = [
+  {
+    objection: '"I already have a cleaner I recommend."',
+    rebuttal: `"Totally fine — I'm not asking you to switch, just to have a second option. The $25 client discount only applies to us, so it costs you nothing to mention it, and the reward tiers are separate from whoever else you use."`,
+  },
+  {
+    objection: '"My clients pick their own vendors, I stay out of it."',
+    rebuttal: `"Makes sense — this isn't an endorsement, just a card or link you can pass along if it's useful. A lot of agents like having something concrete to hand a seller who's stressed about getting a home show-ready fast."`,
+  },
+  {
+    objection: '"Is this some kind of referral fee / kickback?"',
+    rebuttal: `"No — nothing cash changes hands with you directly. The rewards are cleaning services: a free listing-prep clean, a closing-gift clean for your client, priority scheduling. It's a service perk, not a commission split."`,
+  },
+  {
+    objection: '"I don\'t have time for this right now."',
+    rebuttal: `"No problem — what's the best email? I'll send something over you can look at whenever, no follow-up needed unless you want it." (Get the email, then use Draft Outreach on this partner right after.)`,
+  },
+  {
+    objection: '"Let me think about it" / no commitment.',
+    rebuttal: `"Of course — I'll leave my card. Mind if I check back in a few weeks?" (Mark as "Contacted", and circle back — a slow "no" often becomes a "yes" once they hit a seller who needs a fast turnaround.)`,
+  },
+];
+
 const EMPTY_FORM = {
   businessName: '',
   contactName: '',
@@ -132,6 +192,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
 }) => {
   const [filter, setFilter] = useState<PartnerStatus | 'all'>('all');
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [scriptTab, setScriptTab] = useState<'property' | 'realtor'>('property');
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -230,26 +291,52 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         </button>
         {scriptOpen && (
           <div className="px-4 pb-4 text-xs text-slate-700 space-y-4">
-            <div>
-              <p className="font-bold text-rose-800 mb-1">The pitch</p>
-              <div className="bg-white rounded-lg border border-rose-100 p-3 space-y-2">
-                <p><span className="font-semibold text-slate-500">Opener: </span>{PITCH_SCRIPT.opener}</p>
-                <p><span className="font-semibold text-slate-500">The offer: </span>{PITCH_SCRIPT.body}</p>
-                <p><span className="font-semibold text-slate-500">The ask: </span>{PITCH_SCRIPT.ask}</p>
-                <p><span className="font-semibold text-slate-500">Close: </span>{PITCH_SCRIPT.close}</p>
-              </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setScriptTab('property')}
+                className={`text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer ${
+                  scriptTab === 'property' ? 'bg-rose-600 text-white' : 'bg-white border border-rose-200 text-rose-700'
+                }`}
+              >
+                Property Managers / RV Parks
+              </button>
+              <button
+                onClick={() => setScriptTab('realtor')}
+                className={`text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer ${
+                  scriptTab === 'realtor' ? 'bg-rose-600 text-white' : 'bg-white border border-rose-200 text-rose-700'
+                }`}
+              >
+                Realtors
+              </button>
             </div>
-            <div>
-              <p className="font-bold text-rose-800 mb-1">Common objections &amp; rebuttals</p>
-              <div className="space-y-2">
-                {OBJECTIONS.map((o, i) => (
-                  <div key={i} className="bg-white rounded-lg border border-rose-100 p-3">
-                    <p className="font-semibold text-slate-800 mb-1">{o.objection}</p>
-                    <p className="text-slate-600">{o.rebuttal}</p>
+            {(() => {
+              const script = scriptTab === 'realtor' ? REALTOR_PITCH_SCRIPT : PITCH_SCRIPT;
+              const objections = scriptTab === 'realtor' ? REALTOR_OBJECTIONS : OBJECTIONS;
+              return (
+                <>
+                  <div>
+                    <p className="font-bold text-rose-800 mb-1">The pitch</p>
+                    <div className="bg-white rounded-lg border border-rose-100 p-3 space-y-2">
+                      <p><span className="font-semibold text-slate-500">Opener: </span>{script.opener}</p>
+                      <p><span className="font-semibold text-slate-500">The offer: </span>{script.body}</p>
+                      <p><span className="font-semibold text-slate-500">The ask: </span>{script.ask}</p>
+                      <p><span className="font-semibold text-slate-500">Close: </span>{script.close}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div>
+                    <p className="font-bold text-rose-800 mb-1">Common objections &amp; rebuttals</p>
+                    <div className="space-y-2">
+                      {objections.map((o, i) => (
+                        <div key={i} className="bg-white rounded-lg border border-rose-100 p-3">
+                          <p className="font-semibold text-slate-800 mb-1">{o.objection}</p>
+                          <p className="text-slate-600">{o.rebuttal}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
             <p className="text-[10px] text-rose-700/80">
               Tip: keep it short, leave something physical (card or flyer) even on a no, and log every visit here so nothing falls through the cracks.
             </p>
@@ -340,7 +427,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
               const code = p.referralCode || slugifyPartnerCode(p.businessName);
               const link = buildBookingLink(code);
               const referredCount = p.referredClientCount || 0;
-              const { next, lastEarned } = getRewardProgress(referredCount);
+              const { next, lastEarned } = getRewardProgress(referredCount, p.type);
               const progressPct = next ? Math.min(100, Math.round((referredCount / next.count) * 100)) : 100;
               return (
                 <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
