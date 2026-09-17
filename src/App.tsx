@@ -86,7 +86,14 @@ export default function App({ userEmail }: AppProps) {
       syncCollection<Expense>('expenses', setExpenses),
       syncCollection<HelperShift>('helperShifts', setHelperShifts),
       syncCollection<MarketingDraft>('marketingDrafts', setMarketingDrafts),
-      syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, setSettings),
+      syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, (loaded) => {
+        setSettings(loaded);
+        // One-time auto-fill: if this Firestore doc predates the Zoho business
+        // email field, write it in once so Riot doesn't have to re-type it.
+        if (!loaded.businessEmail) {
+          putSettingsDoc({ ...loaded, businessEmail: 'hello@cleanconvictions.com' });
+        }
+      }),
     ];
     return () => unsubs.forEach((u) => u());
   }, []);

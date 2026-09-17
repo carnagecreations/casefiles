@@ -131,6 +131,7 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   referralRewardAmount: 25,
   referralDiscountAmount: 25,
   addOns: DEFAULT_ADD_ONS,
+  businessEmail: 'hello@cleanconvictions.com',
 };
 
 /**
