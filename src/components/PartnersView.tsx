@@ -14,6 +14,10 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquareText,
+  Copy,
+  Check,
+  QrCode,
+  Trophy,
 } from 'lucide-react';
 import { buildSmsLink, buildZohoComposeLink } from '../utils/contactLinks';
 
@@ -42,6 +46,33 @@ const STATUS_META: Record<PartnerStatus, { label: string; color: string; dot: st
 };
 
 const STATUS_ORDER: PartnerStatus[] = ['not_contacted', 'contacted', 'interested', 'partnered', 'declined'];
+
+const BOOKING_BASE_URL = 'https://www.cleanconvictions.com/book';
+
+// Turns "Desert Skies RV Resort" into "DESERT-SKIES-RV-RESORT" — matches the
+// auto-generation done in App.tsx so a code typed here or left blank lands
+// the same either way.
+const slugifyPartnerCode = (text: string) =>
+  text.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+const buildBookingLink = (code: string) => `${BOOKING_BASE_URL}?ref=${encodeURIComponent(code)}`;
+
+const buildQrImageUrl = (link: string) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(link)}`;
+
+// Milestone rewards for the partner themselves — a reason to keep sending
+// residents our way beyond the first referral.
+const REWARD_TIERS: { count: number; reward: string }[] = [
+  { count: 3, reward: 'A free standard cleaning for your office or clubhouse' },
+  { count: 6, reward: '$75 credit toward your common-area cleaning' },
+  { count: 10, reward: 'Ongoing quarterly free cleaning for your office, for as long as we\'re partnered' },
+];
+
+const getRewardProgress = (referredCount: number) => {
+  const next = REWARD_TIERS.find((t) => referredCount < t.count);
+  const lastEarned = [...REWARD_TIERS].reverse().find((t) => referredCount >= t.count);
+  return { next, lastEarned };
+};
 
 // A walk-in / phone pitch for property managers and RV park offices, plus the
 // objections that actually come up and a short rebuttal for each — meant to be
@@ -89,6 +120,7 @@ const EMPTY_FORM = {
   address: '',
   status: 'not_contacted' as PartnerStatus,
   notes: '',
+  referralCode: '',
 };
 
 export const PartnersView: React.FC<PartnersViewProps> = ({
@@ -103,6 +135,15 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [qrOpenId, setQrOpenId] = useState<string | null>(null);
+
+  const handleCopyLink = (p: Partner) => {
+    const code = p.referralCode || slugifyPartnerCode(p.businessName);
+    navigator.clipboard.writeText(buildBookingLink(code));
+    setCopiedId(p.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const filtered = filter === 'all' ? partners : partners.filter((p) => p.status === filter);
   const sorted = [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -123,6 +164,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
       address: p.address || '',
       status: p.status,
       notes: p.notes || '',
+      referralCode: p.referralCode || '',
     });
     setEditingId(p.id);
     setFormOpen(true);
@@ -139,6 +181,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
       address: form.address.trim() || undefined,
       status: form.status,
       notes: form.notes.trim() || undefined,
+      referralCode: slugifyPartnerCode(form.referralCode.trim() || form.businessName),
     };
     if (editingId) {
       onUpdatePartner(editingId, data);
@@ -292,6 +335,80 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
               </div>
             </div>
 
+            {/* Referral code, shareable booking link, QR, and reward-tier progress */}
+            {(() => {
+              const code = p.referralCode || slugifyPartnerCode(p.businessName);
+              const link = buildBookingLink(code);
+              const referredCount = p.referredClientCount || 0;
+              const { next, lastEarned } = getRewardProgress(referredCount);
+              const progressPct = next ? Math.min(100, Math.round((referredCount / next.count) * 100)) : 100;
+              return (
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Code</span>
+                    <span className="font-mono text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded">
+                      {code}
+                    </span>
+                    <button
+                      onClick={() => handleCopyLink(p)}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                      title="Copy booking link"
+                    >
+                      {copiedId === p.id ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" /> Copy Link
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setQrOpenId(qrOpenId === p.id ? null : p.id)}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                    >
+                      <QrCode className="w-3 h-3" /> {qrOpenId === p.id ? 'Hide QR' : 'Flyer QR'}
+                    </button>
+                  </div>
+
+                  {qrOpenId === p.id && (
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <img src={buildQrImageUrl(link)} alt={`QR code for ${p.businessName} booking link`} className="w-24 h-24 rounded" />
+                      <div className="text-[11px] text-slate-500">
+                        <p className="font-semibold text-slate-700 mb-1">Print this for the office or a welcome packet.</p>
+                        <p className="break-all">{link}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                        <Trophy className="w-3 h-3 text-amber-500" />
+                        {referredCount} client{referredCount === 1 ? '' : 's'} referred
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {next ? `${next.count - referredCount} more to next reward` : 'All milestones reached!'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-400 rounded-full" style={{ width: `${progressPct}%` }} />
+                    </div>
+                    {(next || lastEarned) && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {next
+                          ? `Next at ${next.count}: ${next.reward}`
+                          : lastEarned
+                          ? `Earned: ${lastEarned.reward}`
+                          : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-wrap gap-2 mt-3">
               <button
                 onClick={() => onDraftOutreach(p)}
@@ -351,6 +468,18 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
                   placeholder="e.g. Desert Skies RV Resort"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Referral Code (optional)</label>
+                <input
+                  value={form.referralCode}
+                  onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value }))}
+                  placeholder="Auto-generated from business name if left blank"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono uppercase placeholder:normal-case placeholder:font-sans"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  What residents mention for $25 off, and the code in their booking link ({BOOKING_BASE_URL}?ref=CODE).
+                </p>
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Type</label>

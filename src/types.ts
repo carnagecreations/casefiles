@@ -291,5 +291,6 @@ export interface Partner {
   notes?: string;
   lastContactDate?: string; // YYYY-MM-DD
   createdAt: string; // YYYY-MM-DD
-  referredClientCount?: number; // clients this partner has sent, tallied manually as they come in
+  referredClientCount?: number; // clients this partner has sent — auto-incremented when a client is saved with this partnerId
+  referralCode?: string; // unique code residents mention/enter for their discount, e.g. "DESERT-SKIES-RV" — also doubles as the ?ref= link param on cleanconvictions.com
 }

@@ -7,6 +7,7 @@ import {
   EstimatorInput,
   Client,
   QuoteBreakdown,
+  Partner,
 } from '../types';
 import { calculateEstimate, generateClientTextQuote } from '../utils/pricingEngine';
 import {
@@ -26,11 +27,13 @@ import {
   RotateCcw,
   Receipt,
   Gift,
+  Handshake,
 } from 'lucide-react';
 
 interface EstimatorViewProps {
   settings: PricingSettings;
   clients: Client[];
+  partners?: Partner[];
   onBookJob: (input: EstimatorInput, clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string }) => void;
   onSaveClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   onCreateInvoiceFromQuote?: (quote: QuoteBreakdown, input: EstimatorInput, clientInfo: { name: string; phone: string; email?: string; address: string; date: string }) => void;
@@ -40,6 +43,7 @@ interface EstimatorViewProps {
 export const EstimatorView: React.FC<EstimatorViewProps> = ({
   settings,
   clients,
+  partners = [],
   onBookJob,
   onSaveClient,
   onCreateInvoiceFromQuote,
@@ -64,6 +68,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   const [referralCodeInput, setReferralCodeInput] = useState<string>(initialInput?.referralCode || '');
   const [appliedReferralCode, setAppliedReferralCode] = useState<string>(initialInput?.referralCode || '');
   const [referralFeedback, setReferralFeedback] = useState<{ valid: boolean; message: string; referrerName?: string } | null>(null);
+  const [matchedPartnerId, setMatchedPartnerId] = useState<string>('');
 
   const getEffectiveCleaningTime = () => {
     if (cleaningTimePreset === 'morning') return '8:00 AM - 11:30 AM (Morning)';
@@ -139,6 +144,10 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
     setCleaningTimePreset('morning');
     setCleaningCustomTime('');
     setClientName('');
+    setAppliedReferralCode('');
+    setReferralCodeInput('');
+    setReferralFeedback(null);
+    setMatchedPartnerId('');
   };
 
   const handleOpenBooking = () => {
@@ -177,6 +186,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   };
 
   const handleSaveAsClientAction = () => {
+    const matchedPartner = matchedPartnerId ? partners.find((p) => p.id === matchedPartnerId) : undefined;
     onSaveClient({
       name: clientName || 'New Client',
       phone: clientPhone || '(928) 555-0100',
@@ -194,6 +204,8 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
       agreedRate: quote.finalPrice,
       status: 'active',
       specialInstructions: 'Created from Clean Convictions Estimator.',
+      leadSource: matchedPartner ? matchedPartner.businessName : undefined,
+      partnerId: matchedPartner ? matchedPartner.id : undefined,
     });
   };
 
@@ -676,18 +688,26 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                       setReferralFeedback({ valid: false, message: 'Please enter a referral code.' });
                       return;
                     }
-                    const matchedClient = clients.find(
-                      (c) =>
-                        (c.referralCode && c.referralCode.toUpperCase() === cleanCode) ||
-                        cleanCode.includes(c.name.split(' ')[0].toUpperCase())
+                    const matchedPartner = partners.find(
+                      (p) => p.referralCode && p.referralCode.toUpperCase() === cleanCode
                     );
+                    const matchedClient = !matchedPartner
+                      ? clients.find(
+                          (c) =>
+                            (c.referralCode && c.referralCode.toUpperCase() === cleanCode) ||
+                            cleanCode.includes(c.name.split(' ')[0].toUpperCase())
+                        )
+                      : undefined;
                     setAppliedReferralCode(cleanCode);
+                    setMatchedPartnerId(matchedPartner?.id || '');
                     setReferralFeedback({
                       valid: true,
-                      message: matchedClient
+                      message: matchedPartner
+                        ? `Partner code! Referred by ${matchedPartner.businessName}. $${settings.referralDiscountAmount || 25} applied — this client will be linked to that partner.`
+                        : matchedClient
                         ? `Valid code! Referred by ${matchedClient.name}. $${settings.referralDiscountAmount || 25} applied.`
                         : `Referral code "${cleanCode}" applied! $${settings.referralDiscountAmount || 25} off first clean.`,
-                      referrerName: matchedClient?.name,
+                      referrerName: matchedPartner?.businessName || matchedClient?.name,
                     });
                   }}
                   className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs whitespace-nowrap"
@@ -702,6 +722,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                       setAppliedReferralCode('');
                       setReferralCodeInput('');
                       setReferralFeedback(null);
+                      setMatchedPartnerId('');
                     }}
                     className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                   >
@@ -740,6 +761,38 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Partner Code Pickers — property managers / RV parks with an active code */}
+            {partners.filter((p) => p.referralCode).length > 0 && !appliedReferralCode && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <span className="text-[11px] text-slate-500 block mb-1.5">
+                  Or select a partner (property manager / RV park) code:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {partners.filter((p) => p.referralCode).slice(0, 6).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        const code = p.referralCode!;
+                        setReferralCodeInput(code);
+                        setAppliedReferralCode(code);
+                        setMatchedPartnerId(p.id);
+                        setReferralFeedback({
+                          valid: true,
+                          message: `Partner code! Referred by ${p.businessName}. $${settings.referralDiscountAmount || 25} applied — this client will be linked to that partner.`,
+                          referrerName: p.businessName,
+                        });
+                      }}
+                      className="text-[11px] font-medium bg-slate-100 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-200 border border-slate-200 px-2 py-1 rounded-md transition cursor-pointer flex items-center"
+                    >
+                      <Handshake className="w-3 h-3 mr-1 text-rose-500" />
+                      {p.businessName}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

@@ -227,6 +227,7 @@ export default function App({ userEmail }: AppProps) {
       createdAt: new Date().toISOString().split('T')[0],
     };
     putDoc('clients', newClient.id, newClient);
+    bumpPartnerReferralCount(newClient.partnerId);
     setActiveTab('clients');
   };
 
@@ -410,6 +411,21 @@ export default function App({ userEmail }: AppProps) {
     putDoc('jobs', newJob.id, newJob);
   };
 
+  // Bumps a partner's referral tally whenever a client is saved with that partnerId —
+  // called from every path that can create a client (manual add, Estimator save).
+  const bumpPartnerReferralCount = (partnerId?: string) => {
+    if (!partnerId) return;
+    const partner = partners.find((p) => p.id === partnerId);
+    if (!partner) return;
+    putDoc('partners', partner.id, {
+      ...partner,
+      referredClientCount: (partner.referredClientCount || 0) + 1,
+      status: partner.status === 'not_contacted' || partner.status === 'contacted' || partner.status === 'interested'
+        ? 'partnered'
+        : partner.status,
+    });
+  };
+
   // Clients CRM Actions
   const handleAddClient = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
     const newClient: Client = {
@@ -418,6 +434,7 @@ export default function App({ userEmail }: AppProps) {
       createdAt: new Date().toISOString().split('T')[0],
     };
     putDoc('clients', newClient.id, newClient);
+    bumpPartnerReferralCount(newClient.partnerId);
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
@@ -652,11 +669,21 @@ export default function App({ userEmail }: AppProps) {
 
   // Partners — property managers, RV/mobile-home parks, HOAs, realtors: a B2B
   // referral channel tracked separately from individual clients.
+  // Turns "Desert Skies RV Resort" into "DESERT-SKIES-RV-RESORT" — used both as
+  // the code residents mention and as the ?ref= param on cleanconvictions.com,
+  // where the site prettifies it back into a display name with no lookup needed.
+  const slugifyPartnerCode = (text: string) =>
+    text.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
   const handleAddPartner = (data: Omit<Partner, 'id' | 'createdAt'>) => {
+    const code = data.referralCode && data.referralCode.trim()
+      ? slugifyPartnerCode(data.referralCode)
+      : slugifyPartnerCode(data.businessName);
     const newPartner: Partner = {
       ...data,
       id: 'partner-' + Date.now(),
       createdAt: new Date().toISOString().split('T')[0],
+      referralCode: code,
     };
     putDoc('partners', newPartner.id, newPartner);
   };
@@ -675,7 +702,9 @@ export default function App({ userEmail }: AppProps) {
   // message for a property manager / RV park partner — ready-to-send, no AI needed.
   const handleDraftOutreach = (partner: Partner) => {
     const contactFirstName = partner.contactName ? partner.contactName.split(' ')[0] : 'there';
-    const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who mentions your name gets $25 off their first cleaning, and gets a fully clean, move-in-ready home the day they arrive for the season. For you, we'll track referrals and can offer a thank-you credit or discount on cleaning for your own office/common areas once a few residents sign on.\n\nWould you be open to us leaving a few flyers or business cards at your office, or including us in a welcome packet for arriving residents? Happy to chat whenever works for you. Thank you!`;
+    const code = partner.referralCode || slugifyPartnerCode(partner.businessName);
+    const bookingLink = `https://www.cleanconvictions.com/book?ref=${code}`;
+    const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who books through this link gets $25 off their first cleaning automatically — ${bookingLink} — or they can just mention code ${code} when they call or text us. They get a fully clean, move-in-ready home the day they arrive for the season.\n\nFor you: once a few residents book, we'll clean your office or a common area free as a thank-you, and it keeps growing the more residents you send our way. I can drop off a few flyers or QR code cards, or email you something to include in a welcome packet — whatever's easiest.\n\nWould you be open to that? Happy to chat whenever works for you. Thank you!`;
     setMarketingPrefill({
       mode: 'create_post',
       context,
@@ -953,6 +982,7 @@ export default function App({ userEmail }: AppProps) {
           <EstimatorView
             settings={settings}
             clients={clients}
+            partners={partners}
             onBookJob={handleBookJobFromEstimator}
             onSaveClient={handleSaveClientFromEstimator}
             onCreateInvoiceFromQuote={handleCreateInvoiceFromQuote}
