@@ -105,6 +105,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   })();
   const maxTrendAmount = Math.max(1, ...sixMonthTrend.map((m) => m.amount));
 
+  // "Up Next" — one single, unambiguous next action instead of making
+  // someone scan the whole dashboard to figure out what to do first.
+  const nextJobToday = [...todayJobs]
+    .filter((j) => j.status !== 'completed')
+    .sort((a, b) => (a.routeOrder || 0) - (b.routeOrder || 0) || a.timeSlot.localeCompare(b.timeSlot))[0];
+  const mostOverdueInvoice = unpaidInvoices[0];
+
+  const upNext = nextJobToday
+    ? {
+        kind: 'job' as const,
+        title: nextJobToday.status === 'in-progress' ? 'Currently cleaning' : "Today's next job",
+        subtitle: `${nextJobToday.clientName} — ${nextJobToday.timeSlot} — ${nextJobToday.address}`,
+      }
+    : mostOverdueInvoice
+    ? {
+        kind: 'invoice' as const,
+        title: 'Oldest unpaid invoice',
+        subtitle: `${mostOverdueInvoice.clientName} — $${mostOverdueInvoice.totalAmount.toLocaleString()} — due ${mostOverdueInvoice.dueDate}`,
+      }
+    : null;
+
   return (
     <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -123,6 +144,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         )}
       </div>
+
+      {/* Up Next — the one thing to focus on, big and unmissable */}
+      {upNext ? (
+        <button
+          onClick={() => onNavigate(upNext.kind === 'job' ? 'schedule' : 'invoices')}
+          className="w-full mb-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-5 rounded-2xl text-left flex items-center justify-between gap-4 hover:from-indigo-500 hover:to-violet-500 transition-colors cursor-pointer shadow-lg shadow-indigo-500/20"
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-200">Up Next</p>
+            <p className="text-lg font-bold mt-0.5 truncate">{upNext.title}</p>
+            <p className="text-sm text-indigo-100 mt-0.5 truncate">{upNext.subtitle}</p>
+          </div>
+          <ArrowRight className="w-6 h-6 shrink-0 text-indigo-200" />
+        </button>
+      ) : (
+        <div className="w-full mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-5 rounded-2xl">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-200">Up Next</p>
+          <p className="text-lg font-bold mt-0.5">All clear — nothing urgent right now.</p>
+        </div>
+      )}
 
       {overdueFollowUps.length > 0 && (
         <button

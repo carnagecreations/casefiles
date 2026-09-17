@@ -676,14 +676,25 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           ) : (
             dateJobs.map((job, index) => {
               const isCompleted = job.status === 'completed';
+              const isCancelled = job.status === 'cancelled';
               const isInProgress = job.status === 'in-progress' || activeTimerJobId === job.id;
               const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`;
               const stopNumber = job.routeOrder || index + 1;
+              // A colored left-edge stripe so status reads at a glance without
+              // parsing any text — teal=in progress, emerald=done, rose=cancelled,
+              // amber=scheduled and waiting on you.
+              const statusStripe = isInProgress
+                ? 'border-l-teal-500'
+                : isCompleted
+                ? 'border-l-emerald-400'
+                : isCancelled
+                ? 'border-l-rose-400'
+                : 'border-l-amber-400';
 
               return (
                 <div
                   key={job.id}
-                  className={`bg-white rounded-2xl border transition p-5 shadow-xs ${
+                  className={`bg-white rounded-2xl border border-l-4 transition p-5 shadow-xs ${statusStripe} ${
                     isInProgress
                       ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/10'
                       : isCompleted

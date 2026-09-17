@@ -165,10 +165,18 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
             <div
-              className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300"
+              className={`h-2.5 rounded-full transition-all duration-500 ${
+                progressPercent === 100 ? 'bg-emerald-500' : 'bg-indigo-500'
+              }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
+          {progressPercent === 100 && (
+            <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-3 py-2 text-xs font-bold animate-[bounce_0.6s_ease-in-out_1]">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              Every task done — nice work. Ready to wrap this job up.
+            </div>
+          )}
         </div>
       </div>
 

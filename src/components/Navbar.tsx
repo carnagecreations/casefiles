@@ -82,6 +82,23 @@ export const Navbar: React.FC<NavbarProps> = ({
     .filter((i) => i.status === 'paid')
     .reduce((sum, i) => sum + i.totalAmount, 0);
 
+  // Each section gets its own color so "where am I" is a glance, not a read —
+  // handy for anyone (ADHD or not) who navigates faster by color than by text.
+  const TAB_COLORS: Record<AppTab, { active: string; icon: string }> = {
+    dashboard: { active: 'bg-indigo-500 text-slate-950', icon: 'text-indigo-400' },
+    estimator: { active: 'bg-violet-500 text-slate-950', icon: 'text-violet-400' },
+    schedule: { active: 'bg-amber-500 text-slate-950', icon: 'text-amber-400' },
+    checklist: { active: 'bg-teal-500 text-slate-950', icon: 'text-teal-400' },
+    clients: { active: 'bg-pink-500 text-slate-950', icon: 'text-pink-400' },
+    invoices: { active: 'bg-emerald-500 text-slate-950', icon: 'text-emerald-400' },
+    expenses: { active: 'bg-orange-500 text-slate-950', icon: 'text-orange-400' },
+    team: { active: 'bg-sky-500 text-slate-950', icon: 'text-sky-400' },
+    marketing: { active: 'bg-fuchsia-500 text-slate-950', icon: 'text-fuchsia-400' },
+    inbox: { active: 'bg-cyan-500 text-slate-950', icon: 'text-cyan-400' },
+    referrals: { active: 'bg-lime-500 text-slate-950', icon: 'text-lime-400' },
+    settings: { active: 'bg-slate-400 text-slate-950', icon: 'text-slate-400' },
+  };
+
   const NAV_ITEMS: {
     id: AppTab;
     label: string;
@@ -232,11 +249,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => handleSelect(item.id)}
               className={`flex items-center px-3.5 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === item.id
-                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? `${TAB_COLORS[item.id].active} font-semibold shadow`
+                  : `text-slate-300 hover:text-white hover:bg-slate-800`
               }`}
             >
-              <span className="mr-2 flex items-center">{item.icon}</span>
+              <span className={`mr-2 flex items-center ${activeTab === item.id ? '' : TAB_COLORS[item.id].icon}`}>{item.icon}</span>
               {item.label}
               {item.badge && <span className="ml-1.5 flex items-center">{item.badge}</span>}
             </button>
@@ -249,7 +266,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="md:hidden w-full flex items-center justify-between py-2.5 border-t border-slate-800/80 text-sm font-semibold cursor-pointer"
         >
           <span className="flex items-center gap-2 text-white">
-            {activeItem?.icon}
+            <span className={activeItem ? TAB_COLORS[activeItem.id].icon : ''}>{activeItem?.icon}</span>
             {activeItem?.label}
           </span>
           <span className="flex items-center gap-2 text-slate-400 text-xs font-medium">
@@ -270,12 +287,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => handleSelect(item.id)}
                 className={`flex items-center justify-between px-3 py-3 rounded-lg text-sm font-medium cursor-pointer ${
                   activeTab === item.id
-                    ? 'bg-emerald-500 text-slate-950 font-semibold'
+                    ? `${TAB_COLORS[item.id].active} font-semibold`
                     : 'text-slate-200 hover:bg-slate-800'
                 }`}
               >
                 <span className="flex items-center">
-                  <span className="mr-3 flex items-center">{item.icon}</span>
+                  <span className={`mr-3 flex items-center ${activeTab === item.id ? '' : TAB_COLORS[item.id].icon}`}>{item.icon}</span>
                   {item.label}
                 </span>
                 {item.badge}

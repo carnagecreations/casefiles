@@ -13,6 +13,7 @@ import {
   HelperShift,
   MarketingDraft,
   ClientActivityEntry,
+  QuickNote,
 } from './types';
 import {
   generateReferralCode,
@@ -38,6 +39,7 @@ import { ExpensesView } from './components/ExpensesView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { ReferralsView } from './components/ReferralsView';
+import { QuickCaptureButton } from './components/QuickCaptureButton';
 
 interface AppProps {
   userEmail: string;
@@ -56,6 +58,7 @@ export default function App({ userEmail }: AppProps) {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [helperShifts, setHelperShifts] = useState<HelperShift[]>([]);
+  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
   const [marketingDrafts, setMarketingDrafts] = useState<MarketingDraft[]>([]);
 
   // Active job selected for checklist walkthrough
@@ -87,6 +90,7 @@ export default function App({ userEmail }: AppProps) {
       syncCollection<Referral>('referrals', setReferrals),
       syncCollection<Expense>('expenses', setExpenses),
       syncCollection<HelperShift>('helperShifts', setHelperShifts),
+      syncCollection<QuickNote>('quickNotes', setQuickNotes),
       syncCollection<MarketingDraft>('marketingDrafts', setMarketingDrafts),
       syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, (loaded) => {
         setSettings(loaded);
@@ -621,6 +625,27 @@ export default function App({ userEmail }: AppProps) {
     removeDoc('helperShifts', id);
   };
 
+  // Quick Capture — zero-friction brain dump, available from every screen
+  const handleAddQuickNote = (text: string) => {
+    const newNote: QuickNote = {
+      id: 'note-' + Date.now(),
+      text,
+      createdAt: new Date().toISOString(),
+      isDone: false,
+    };
+    putDoc('quickNotes', newNote.id, newNote);
+  };
+
+  const handleToggleQuickNoteDone = (id: string, isDone: boolean) => {
+    const note = quickNotes.find((n) => n.id === id);
+    if (!note) return;
+    putDoc('quickNotes', id, { ...note, isDone });
+  };
+
+  const handleDeleteQuickNote = (id: string) => {
+    removeDoc('quickNotes', id);
+  };
+
   // Assign a job to a specific team member
   const handleAssignJob = (jobId: string, assignedTo: string) => {
     const job = jobs.find((j) => j.id === jobId);
@@ -1077,6 +1102,13 @@ export default function App({ userEmail }: AppProps) {
           </button>
         </div>
       </footer>
+
+      <QuickCaptureButton
+        notes={quickNotes}
+        onAdd={handleAddQuickNote}
+        onToggleDone={handleToggleQuickNoteDone}
+        onDelete={handleDeleteQuickNote}
+      />
     </div>
   );
 }

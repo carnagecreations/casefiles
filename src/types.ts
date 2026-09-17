@@ -261,3 +261,12 @@ export interface HelperShift {
   paid: boolean;
   paidDate?: string;
 }
+
+// A one-tap "brain dump" note — capture a stray thought instantly from
+// anywhere in the app without breaking focus on the current task.
+export interface QuickNote {
+  id: string;
+  text: string;
+  createdAt: string; // ISO timestamp
+  isDone: boolean;
+}
