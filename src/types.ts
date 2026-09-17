@@ -90,6 +90,9 @@ export interface Client {
   doNotServeReason?: string;
   skipNextVisit?: boolean; // pauses just the next auto-recurring booking, then clears itself
   followUpDate?: string; // YYYY-MM-DD — when to follow up on a lead/quote
+  leadSource?: string; // free text, e.g. "Desert Skies RV Park", "Google", "Referral"
+  partnerId?: string; // links this client to a Partner record if they came through a property manager/RV park deal
+  isSnowbird?: boolean; // seasonal winter-only resident — flagged for the snowbird special / season-end follow-up
 }
 
 export interface ClientActivityEntry {
@@ -269,4 +272,24 @@ export interface QuickNote {
   text: string;
   createdAt: string; // ISO timestamp
   isDone: boolean;
+}
+
+// B2B relationship tracker — property managers, RV/mobile-home parks, HOAs,
+// realtors, and similar referral partners, distinct from individual clients.
+export type PartnerType = 'property_manager' | 'rv_park' | 'realtor' | 'hoa' | 'other';
+export type PartnerStatus = 'not_contacted' | 'contacted' | 'interested' | 'partnered' | 'declined';
+
+export interface Partner {
+  id: string;
+  businessName: string;
+  contactName?: string;
+  type: PartnerType;
+  phone?: string;
+  email?: string;
+  address?: string;
+  status: PartnerStatus;
+  notes?: string;
+  lastContactDate?: string; // YYYY-MM-DD
+  createdAt: string; // YYYY-MM-DD
+  referredClientCount?: number; // clients this partner has sent, tallied manually as they come in
 }

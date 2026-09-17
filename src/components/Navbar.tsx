@@ -17,6 +17,7 @@ import {
   Megaphone,
   Search,
   Inbox as InboxIcon,
+  Handshake,
 } from 'lucide-react';
 import { JobAppointment, Invoice, Client } from '../types';
 
@@ -31,6 +32,7 @@ export type AppTab =
   | 'team'
   | 'marketing'
   | 'inbox'
+  | 'partners'
   | 'settings'
   | 'referrals';
 
@@ -95,6 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     team: { active: 'bg-sky-500 text-slate-950', icon: 'text-sky-400' },
     marketing: { active: 'bg-fuchsia-500 text-slate-950', icon: 'text-fuchsia-400' },
     inbox: { active: 'bg-cyan-500 text-slate-950', icon: 'text-cyan-400' },
+    partners: { active: 'bg-rose-500 text-slate-950', icon: 'text-rose-400' },
     referrals: { active: 'bg-lime-500 text-slate-950', icon: 'text-lime-400' },
     settings: { active: 'bg-slate-400 text-slate-950', icon: 'text-slate-400' },
   };
@@ -148,6 +151,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         ) : undefined,
     },
+    { id: 'partners', label: 'Partners', icon: <Handshake className="w-4 h-4" /> },
     {
       id: 'referrals',
       label: 'Referral System',

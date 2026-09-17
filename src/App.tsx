@@ -14,6 +14,7 @@ import {
   MarketingDraft,
   ClientActivityEntry,
   QuickNote,
+  Partner,
 } from './types';
 import {
   generateReferralCode,
@@ -40,6 +41,7 @@ import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { ReferralsView } from './components/ReferralsView';
 import { QuickCaptureButton } from './components/QuickCaptureButton';
+import { PartnersView } from './components/PartnersView';
 
 interface AppProps {
   userEmail: string;
@@ -59,6 +61,7 @@ export default function App({ userEmail }: AppProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [helperShifts, setHelperShifts] = useState<HelperShift[]>([]);
   const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [marketingDrafts, setMarketingDrafts] = useState<MarketingDraft[]>([]);
 
   // Active job selected for checklist walkthrough
@@ -91,6 +94,7 @@ export default function App({ userEmail }: AppProps) {
       syncCollection<Expense>('expenses', setExpenses),
       syncCollection<HelperShift>('helperShifts', setHelperShifts),
       syncCollection<QuickNote>('quickNotes', setQuickNotes),
+      syncCollection<Partner>('partners', setPartners),
       syncCollection<MarketingDraft>('marketingDrafts', setMarketingDrafts),
       syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, (loaded) => {
         setSettings(loaded);
@@ -646,6 +650,42 @@ export default function App({ userEmail }: AppProps) {
     removeDoc('quickNotes', id);
   };
 
+  // Partners — property managers, RV/mobile-home parks, HOAs, realtors: a B2B
+  // referral channel tracked separately from individual clients.
+  const handleAddPartner = (data: Omit<Partner, 'id' | 'createdAt'>) => {
+    const newPartner: Partner = {
+      ...data,
+      id: 'partner-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('partners', newPartner.id, newPartner);
+  };
+
+  const handleUpdatePartner = (id: string, data: Partial<Partner>) => {
+    const partner = partners.find((p) => p.id === id);
+    if (!partner) return;
+    putDoc('partners', id, { ...partner, ...data });
+  };
+
+  const handleDeletePartner = (id: string) => {
+    removeDoc('partners', id);
+  };
+
+  // Jump to Marketing Hub pre-filled with a ready-to-send snowbird-season outreach
+  // message for a property manager / RV park partner — ready-to-send, no AI needed.
+  const handleDraftOutreach = (partner: Partner) => {
+    const contactFirstName = partner.contactName ? partner.contactName.split(' ')[0] : 'there';
+    const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who mentions your name gets $25 off their first cleaning, and gets a fully clean, move-in-ready home the day they arrive for the season. For you, we'll track referrals and can offer a thank-you credit or discount on cleaning for your own office/common areas once a few residents sign on.\n\nWould you be open to us leaving a few flyers or business cards at your office, or including us in a welcome packet for arriving residents? Happy to chat whenever works for you. Thank you!`;
+    setMarketingPrefill({
+      mode: 'create_post',
+      context,
+      recipientEmail: partner.email || undefined,
+      recipientPhone: partner.phone || undefined,
+      subject: `Winter/Snowbird Cleaning Special for ${partner.businessName} Residents`,
+    });
+    setActiveTab('marketing');
+  };
+
   // Assign a job to a specific team member
   const handleAssignJob = (jobId: string, assignedTo: string) => {
     const job = jobs.find((j) => j.id === jobId);
@@ -1026,6 +1066,16 @@ export default function App({ userEmail }: AppProps) {
 
         {activeTab === 'inbox' && (
           <InboxView settings={settings} onUnreadCountChange={setUnreadEmailCount} />
+        )}
+
+        {activeTab === 'partners' && (
+          <PartnersView
+            partners={partners}
+            onAddPartner={handleAddPartner}
+            onUpdatePartner={handleUpdatePartner}
+            onDeletePartner={handleDeletePartner}
+            onDraftOutreach={handleDraftOutreach}
+          />
         )}
 
         {activeTab === 'settings' && (
