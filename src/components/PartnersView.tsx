@@ -11,6 +11,9 @@ import {
   Send,
   Pencil,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  MessageSquareText,
 } from 'lucide-react';
 import { buildSmsLink, buildZohoComposeLink } from '../utils/contactLinks';
 
@@ -40,6 +43,43 @@ const STATUS_META: Record<PartnerStatus, { label: string; color: string; dot: st
 
 const STATUS_ORDER: PartnerStatus[] = ['not_contacted', 'contacted', 'interested', 'partnered', 'declined'];
 
+// A walk-in / phone pitch for property managers and RV park offices, plus the
+// objections that actually come up and a short rebuttal for each — meant to be
+// pulled up on your phone right before or during the conversation.
+const PITCH_SCRIPT = {
+  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about a resident perk for the snowbird season, no cost to you.`,
+  body: `We clean seasonal/winter homes for snowbirds arriving here in Yuma, and we'd like ${'{business name}'} to be the cleaning service you point residents to. Anyone here who mentions your name gets $25 off their first cleaning, and moves into a spotless home the day they arrive instead of spending their first day cleaning after a long drive. For you, there's nothing to do — just let residents know we exist, maybe a flyer at the office or in a welcome packet. Once a few residents sign on, we'll credit or discount a cleaning for your own office or common areas as a thank-you.`,
+  ask: `Would it be alright if I dropped off a few flyers or business cards, or emailed you something you could include in a welcome packet?`,
+  close: `Great — I'll get that over to you today. If residents have any questions they can call or text me directly. Thanks for your time!`,
+};
+
+const OBJECTIONS: { objection: string; rebuttal: string }[] = [
+  {
+    objection: '"We already use/recommend another cleaning company."',
+    rebuttal: `"Totally understandable — I'm not asking you to drop them, just to also mention us as an option. Residents like having a choice, and the $25 referral perk only applies to us, so it doesn't cost you anything to have a second name on the list."`,
+  },
+  {
+    objection: '"We don\'t make vendor recommendations / liability concerns."',
+    rebuttal: `"That's fair, a lot of places feel that way. This isn't an official recommendation or endorsement — it's just a flyer or card residents can take if they want, the same as any local business card left at the front desk. You're not vouching for us, just making residents aware."`,
+  },
+  {
+    objection: '"We\'re not interested" / brush-off.',
+    rebuttal: `"No worries at all — would it be okay if I just left a card in case it comes up later? No pressure either way." (Leave the card, thank them, and mark as declined — don't push further in person; you can always follow up in a month or two once snowbird season is in full swing.)`,
+  },
+  {
+    objection: '"What\'s actually in it for us?"',
+    rebuttal: `"Once a few residents book through you, we'll clean your office or a common area for free or heavily discounted as a thank-you — and it makes your property look good, since new residents arrive to a clean home instead of complaining to you about needing to clean first."`,
+  },
+  {
+    objection: '"Just email/send it to me, I don\'t have time right now."',
+    rebuttal: `"Absolutely — what's the best email? I'll send it over today with the flyer attached so you have it whenever you're ready." (Get the email on the spot, then use Draft Outreach on this partner right after.)`,
+  },
+  {
+    objection: '"Let me think about it" / no commitment.',
+    rebuttal: `"Of course — I'll leave you my card. Mind if I check back in a couple weeks as the season picks up?" (Mark as "Contacted", set a follow-up reminder, and circle back rather than pushing for a yes on the spot.)`,
+  },
+];
+
 const EMPTY_FORM = {
   businessName: '',
   contactName: '',
@@ -59,6 +99,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   onDraftOutreach,
 }) => {
   const [filter, setFilter] = useState<PartnerStatus | 'all'>('all');
+  const [scriptOpen, setScriptOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -130,6 +171,47 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
           <Plus className="w-3.5 h-3.5" />
           Add Partner
         </button>
+      </div>
+
+      {/* Call script & objection rebuttals — collapsed by default, pull up right before/during a visit or call */}
+      <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setScriptOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 cursor-pointer"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-rose-800">
+            <MessageSquareText className="w-4 h-4" />
+            Call/Visit Script &amp; Rebuttals
+          </span>
+          {scriptOpen ? <ChevronUp className="w-4 h-4 text-rose-500" /> : <ChevronDown className="w-4 h-4 text-rose-500" />}
+        </button>
+        {scriptOpen && (
+          <div className="px-4 pb-4 text-xs text-slate-700 space-y-4">
+            <div>
+              <p className="font-bold text-rose-800 mb-1">The pitch</p>
+              <div className="bg-white rounded-lg border border-rose-100 p-3 space-y-2">
+                <p><span className="font-semibold text-slate-500">Opener: </span>{PITCH_SCRIPT.opener}</p>
+                <p><span className="font-semibold text-slate-500">The offer: </span>{PITCH_SCRIPT.body}</p>
+                <p><span className="font-semibold text-slate-500">The ask: </span>{PITCH_SCRIPT.ask}</p>
+                <p><span className="font-semibold text-slate-500">Close: </span>{PITCH_SCRIPT.close}</p>
+              </div>
+            </div>
+            <div>
+              <p className="font-bold text-rose-800 mb-1">Common objections &amp; rebuttals</p>
+              <div className="space-y-2">
+                {OBJECTIONS.map((o, i) => (
+                  <div key={i} className="bg-white rounded-lg border border-rose-100 p-3">
+                    <p className="font-semibold text-slate-800 mb-1">{o.objection}</p>
+                    <p className="text-slate-600">{o.rebuttal}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-rose-700/80">
+              Tip: keep it short, leave something physical (card or flyer) even on a no, and log every visit here so nothing falls through the cracks.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">
