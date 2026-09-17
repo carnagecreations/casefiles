@@ -409,24 +409,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 mt-2">
-            Neither Google Voice nor Zoho Mail offers a way for an app to send on your behalf automatically — these links open your Google Voice texting app or Zoho Mail's compose window pre-filled, so sending is still one tap by you.
-          </p>
         </div>
 
-        {/* Marketing AI */}
+        {/* Email Connection */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
-            Marketing AI
+            Email Connection
           </h3>
           <p className="text-[11px] text-slate-500 mb-3">
-            Powers the Marketing tab's AI drafting. Deploy the Cloudflare Worker from the{' '}
-            <code className="bg-slate-100 px-1 rounded">cloudflare-ai-worker</code> folder you were sent, then paste
-            its details here.
+            Powers real email sending and the live Inbox. This is the Cloudflare Worker from the{' '}
+            <code className="bg-slate-100 px-1 rounded">cloudflare-ai-worker</code> folder you were sent — only change
+            these if the Worker's URL or secret ever changes.
           </p>
           <div className="grid grid-cols-1 gap-3 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">AI Endpoint URL</label>
+              <label className="block font-semibold text-slate-700 mb-1">Worker URL</label>
               <input
                 type="text"
                 value={formSettings.marketingAiEndpoint || ''}

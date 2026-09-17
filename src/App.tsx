@@ -712,7 +712,7 @@ export default function App({ userEmail }: AppProps) {
   const handleRequestReview = (client: Client) => {
     setMarketingPrefill({
       mode: 'create_post',
-      context: `Write a short, friendly message asking ${client.name} to leave us a Google review after their recent cleaning. Mention we'd really appreciate it and include a quick thank-you.`,
+      context: `Hi ${client.name}, thank you so much for choosing Clean Convictions for your recent cleaning! If you have a minute, we'd really appreciate a quick Google review — it helps our small business a lot. Thank you!`,
       recipientEmail: client.email || undefined,
       recipientPhone: client.phone || undefined,
       subject: 'We would love your feedback!',
@@ -758,7 +758,7 @@ export default function App({ userEmail }: AppProps) {
   const handleRequestPaymentReminder = (invoice: Invoice) => {
     setMarketingPrefill({
       mode: 'reply_email',
-      context: `Write a polite but firm payment reminder to ${invoice.clientName} for invoice ${invoice.invoiceNumber}, $${invoice.totalAmount} due ${invoice.dueDate}, for the cleaning service completed on ${invoice.serviceDate}.`,
+      context: `Hi ${invoice.clientName}, this is a friendly reminder that invoice ${invoice.invoiceNumber} ($${invoice.totalAmount}) for your cleaning on ${invoice.serviceDate} was due ${invoice.dueDate}. Please let us know if you have any questions — thank you!`,
       recipientEmail: invoice.clientEmail || undefined,
       recipientPhone: invoice.clientPhone || undefined,
       subject: `Payment reminder — Invoice ${invoice.invoiceNumber}`,
@@ -770,7 +770,7 @@ export default function App({ userEmail }: AppProps) {
   const handleDraftOnMyWay = (job: JobAppointment) => {
     setMarketingPrefill({
       mode: 'reply_email',
-      context: `Write a short, friendly "we're on our way" heads-up message to ${job.clientName} for their ${job.timeSlot} cleaning appointment today.`,
+      context: `Hi ${job.clientName}, just a heads up that we're on our way for your ${job.timeSlot} cleaning today. See you soon!`,
       recipientPhone: job.clientPhone || undefined,
       subject: "We're on our way!",
     });
@@ -844,7 +844,7 @@ export default function App({ userEmail }: AppProps) {
   const handleDraftThankYou = (invoice: Invoice) => {
     setMarketingPrefill({
       mode: 'reply_email',
-      context: `Write a short, warm thank-you message to ${invoice.clientName} for paying invoice ${invoice.invoiceNumber} for their recent cleaning.`,
+      context: `Hi ${invoice.clientName}, thank you so much for your payment on invoice ${invoice.invoiceNumber}! We really appreciate your business and look forward to cleaning for you again.`,
       recipientEmail: invoice.clientEmail || undefined,
       recipientPhone: invoice.clientPhone || undefined,
       subject: 'Thank you!',
@@ -862,7 +862,7 @@ export default function App({ userEmail }: AppProps) {
     const unpaidTotal = invoices.filter((i) => i.status === 'unpaid').reduce((sum, i) => sum + i.totalAmount, 0);
     setMarketingPrefill({
       mode: 'create_post',
-      context: `Write a short weekly business recap update. This week: ${weekJobsCompleted} cleanings completed, $${weekRevenue} in revenue collected, $${unpaidTotal} currently outstanding in unpaid invoices. Keep it upbeat and brief, like a note to myself or my team, not a public post.`,
+      context: `This week: ${weekJobsCompleted} cleanings completed, $${weekRevenue} in revenue collected, $${unpaidTotal} currently outstanding in unpaid invoices.`,
     });
     setActiveTab('marketing');
   };
