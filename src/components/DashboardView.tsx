@@ -26,6 +26,7 @@ interface DashboardViewProps {
   expenses: Expense[];
   helperShifts: HelperShift[];
   onNavigate: (tab: 'schedule' | 'invoices' | 'expenses' | 'clients') => void;
+  onDraftWeeklyRecap?: () => void;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -38,6 +39,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   expenses,
   helperShifts,
   onNavigate,
+  onDraftWeeklyRecap,
 }) => {
   const monthPrefix = thisMonthPrefix();
   const today = todayStr();
@@ -79,14 +81,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const lowStockItems = expenses.filter((e) => e.isLowStock);
 
+  const overdueFollowUps = clients.filter(
+    (c) => c.status === 'lead' && c.followUpDate && c.followUpDate <= today
+  );
+
+  const recurringExpensesDue = expenses.filter(
+    (e) => e.isRecurringMonthly && !expenses.some((other) => other.description === e.description && other.date.startsWith(monthPrefix))
+  );
+
+  // Last 6 months of paid revenue, oldest to newest
+  const sixMonthTrend = (() => {
+    const months: { label: string; prefix: string; amount: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const prefix = d.toISOString().slice(0, 7);
+      const amount = invoices
+        .filter((inv) => inv.status === 'paid' && (inv.paidDate || inv.issueDate || '').startsWith(prefix))
+        .reduce((sum, inv) => sum + inv.totalAmount, 0);
+      months.push({ label: d.toLocaleDateString('en-US', { month: 'short' }), prefix, amount });
+    }
+    return months;
+  })();
+  const maxTrendAmount = Math.max(1, ...sixMonthTrend.map((m) => m.amount));
+
   return (
     <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-900">Business Overview</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Where Clean Convictions stands right now, at a glance.
-        </p>
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Business Overview</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Where Clean Convictions stands right now, at a glance.
+          </p>
+        </div>
+        {onDraftWeeklyRecap && (
+          <button
+            onClick={onDraftWeeklyRecap}
+            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-teal-300 rounded-lg text-xs font-bold flex items-center cursor-pointer"
+          >
+            Draft Weekly Recap
+          </button>
+        )}
       </div>
+
+      {overdueFollowUps.length > 0 && (
+        <button
+          onClick={() => onNavigate('clients')}
+          className="w-full mb-3 bg-indigo-50 border border-indigo-200 text-indigo-800 p-4 rounded-xl text-xs flex items-center gap-2 text-left hover:bg-indigo-100 transition-colors cursor-pointer"
+        >
+          <span>
+            <span className="font-semibold">Lead follow-up due: </span>
+            {overdueFollowUps.map((c) => c.name).join(', ')}
+          </span>
+        </button>
+      )}
+
+      {recurringExpensesDue.length > 0 && (
+        <button
+          onClick={() => onNavigate('expenses')}
+          className="w-full mb-3 bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl text-xs flex items-center gap-2 text-left hover:bg-rose-100 transition-colors cursor-pointer"
+        >
+          <span>
+            <span className="font-semibold">Recurring expense not yet logged this month: </span>
+            {recurringExpensesDue.map((e) => e.description).join(', ')}
+          </span>
+        </button>
+      )}
 
       {lowStockItems.length > 0 && (
         <button
@@ -279,6 +339,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 6-Month Revenue Trend */}
+      <div className="mt-4 bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+          Revenue Trend (Last 6 Months)
+        </h3>
+        <div className="flex items-end gap-3 h-28">
+          {sixMonthTrend.map((m) => (
+            <div key={m.prefix} className="flex-1 flex flex-col items-center justify-end h-full">
+              <span className="text-[10px] font-bold text-slate-700 mb-1">
+                {m.amount > 0 ? `$${Math.round(m.amount).toLocaleString()}` : ''}
+              </span>
+              <div
+                className="w-full max-w-10 rounded-t-sm bg-emerald-500"
+                style={{ height: `${Math.max(4, (m.amount / maxTrendAmount) * 100)}%` }}
+                title={`${m.label}: $${Math.round(m.amount).toLocaleString()}`}
+              />
+              <span className="text-[10px] text-slate-400 mt-1">{m.label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -53,6 +53,7 @@ interface ScheduleViewProps {
   onCancelJob?: (jobId: string, reason?: string) => void;
   onRescheduleJob?: (jobId: string, date: string, timeSlot: string) => void;
   onDraftOnMyWay?: (job: JobAppointment) => void;
+  onDuplicateJob?: (jobId: string, date: string, timeSlot: string) => void;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
@@ -72,6 +73,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onCancelJob,
   onRescheduleJob,
   onDraftOnMyWay,
+  onDuplicateJob,
 }) => {
   const teamMembers = settings?.teamMembers || [];
 
@@ -87,6 +89,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (!newDate) return;
     const newTimeSlot = window.prompt('Time slot for the new date?', job.timeSlot) || job.timeSlot;
     onRescheduleJob(job.id, newDate, newTimeSlot);
+  };
+
+  const handleDuplicateClick = (job: JobAppointment) => {
+    if (!onDuplicateJob) return;
+    const newDate = window.prompt('Duplicate this job to which date? (YYYY-MM-DD)', job.date);
+    if (!newDate) return;
+    onDuplicateJob(job.id, newDate, job.timeSlot);
   };
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -883,6 +892,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           >
                             <ArrowRight className="w-3.5 h-3.5 mr-1" />
                             Reschedule
+                          </button>
+                        )}
+
+                        {onDuplicateJob && (
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateClick(job)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center transition cursor-pointer"
+                            title="Duplicate this job to a new date"
+                          >
+                            Duplicate
                           </button>
                         )}
 

@@ -8,6 +8,7 @@ import {
   HomeCondition,
   PricingSettings,
   EstimatorInput,
+  Referral,
 } from '../types';
 import {
   Users,
@@ -47,6 +48,7 @@ interface ClientsViewProps {
   jobs: JobAppointment[];
   invoices: Invoice[];
   settings: PricingSettings;
+  referrals?: Referral[];
   onAddClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   onUpdateClient: (client: Client) => void;
   onDeleteClient: (clientId: string) => void;
@@ -64,6 +66,11 @@ interface ClientsViewProps {
 }
 
 const LOYALTY_MILESTONES = [5, 10, 25, 50, 100];
+const REFERRAL_TIERS: { min: number; label: string }[] = [
+  { min: 1, label: '🥉 Bronze Referrer' },
+  { min: 3, label: '🥈 Silver Referrer' },
+  { min: 6, label: '🥇 Gold Referrer' },
+];
 
 const COMMON_TAGS = ['VIP', 'At-Risk', 'One-Time', 'Referral Source', 'Price-Sensitive'];
 
@@ -72,6 +79,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   jobs,
   invoices,
   settings,
+  referrals = [],
   onAddClient,
   onUpdateClient,
   onDeleteClient,
@@ -1076,6 +1084,32 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     {historyClient.doNotServe ? `🚫 Marked Do Not Serve${historyClient.doNotServeReason ? ` — ${historyClient.doNotServeReason}` : ''}` : 'Mark as Do Not Serve'}
                   </button>
                 )}
+
+                {historyClient.status === 'lead' && (
+                  <button
+                    onClick={() => {
+                      const date = window.prompt('Follow up on (YYYY-MM-DD)?', historyClient.followUpDate || new Date().toISOString().split('T')[0]);
+                      if (date === null) return;
+                      onUpdateClient({ ...historyClient, followUpDate: date || undefined });
+                      setHistoryClient({ ...historyClient, followUpDate: date || undefined });
+                    }}
+                    className="mt-2 text-xs font-semibold text-indigo-700 hover:text-indigo-900 flex items-center"
+                  >
+                    {historyClient.followUpDate ? `📅 Follow up ${historyClient.followUpDate}` : 'Set follow-up date'}
+                  </button>
+                )}
+
+                {(() => {
+                  const referralsSent = referrals.filter(
+                    (r) => r.referrerClientId === historyClient.id && r.status !== 'pending'
+                  ).length;
+                  const tier = [...REFERRAL_TIERS].reverse().find((t) => referralsSent >= t.min);
+                  return tier ? (
+                    <p className="mt-2 text-xs font-semibold text-amber-700">
+                      {tier.label} ({referralsSent} referred)
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div>

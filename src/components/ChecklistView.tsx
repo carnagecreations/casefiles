@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Send,
   MessageSquare,
+  Star,
 } from 'lucide-react';
 
 interface ChecklistViewProps {
@@ -21,6 +22,7 @@ interface ChecklistViewProps {
   onMarkAllCompleted: (jobId: string) => void;
   onSaveJobNotes: (jobId: string, notes: string) => void;
   onCompleteJob: (jobId: string) => void;
+  onSetJobQuality?: (jobId: string, rating: number) => void;
 }
 
 export const ChecklistView: React.FC<ChecklistViewProps> = ({
@@ -30,6 +32,7 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({
   onMarkAllCompleted,
   onSaveJobNotes,
   onCompleteJob,
+  onSetJobQuality,
 }) => {
   // Find current job or default to the first in-progress/scheduled
   const activeJob =
@@ -302,10 +305,30 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({
                 Certify & Mark Completed
               </button>
             ) : (
-              <span className="text-xs text-emerald-400 font-semibold flex items-center">
-                <CheckCircle2 className="w-4 h-4 mr-1 text-emerald-400" />
-                Verified & Completed
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-emerald-400 font-semibold flex items-center">
+                  <CheckCircle2 className="w-4 h-4 mr-1 text-emerald-400" />
+                  Verified & Completed
+                </span>
+                {onSetJobQuality && (
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => onSetJobQuality(job.id, star)}
+                        className="cursor-pointer"
+                        title={`Rate this job ${star} star${star > 1 ? 's' : ''}`}
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            (job.qualityRating || 0) >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-500'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -89,6 +89,7 @@ export interface Client {
   doNotServe?: boolean;
   doNotServeReason?: string;
   skipNextVisit?: boolean; // pauses just the next auto-recurring booking, then clears itself
+  followUpDate?: string; // YYYY-MM-DD — when to follow up on a lead/quote
 }
 
 export interface ClientActivityEntry {
@@ -128,6 +129,7 @@ export interface JobAppointment {
   assignedTo?: string; // team member this job is assigned to
   timerStartedAt?: string; // ISO timestamp while the on-site timer is running
   cancellationReason?: string;
+  qualityRating?: number; // 1-5 self/client-reported quality rating on completion
 }
 
 export interface BlockedTime {
@@ -167,6 +169,7 @@ export interface Invoice {
   referralCreditApplied?: number;
   tipAmount?: number;
   lateFeeAmount?: number;
+  amountPaid?: number; // running total of partial payments received (unpaid invoices only)
   notes?: string;
 }
 
@@ -207,6 +210,7 @@ export interface PricingSettings {
   teamMembers?: string[]; // names jobs can be assigned to (owner + helpers)
   mileageRate?: number; // $/mile used to auto-calc a gas expense from logged mileage
   lateFeePercent?: number; // % of subtotal applied as a late fee on overdue invoices
+  extraChecklistItems?: string[]; // always-included checklist tasks appended to every job
 }
 
 export type MarketingDraftMode = 'reply_email' | 'reply_post' | 'create_post';
@@ -240,6 +244,7 @@ export interface Expense {
   clientId?: string;
   notes?: string;
   isLowStock?: boolean; // flagged as running low / needs reordering soon
+  isRecurringMonthly?: boolean; // e.g. insurance premium — reminds if not re-logged this month
 }
 
 export interface HelperShift {

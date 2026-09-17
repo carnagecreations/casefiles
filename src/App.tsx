@@ -185,7 +185,7 @@ export default function App({ userEmail }: AppProps) {
       selectedAddOns: input.selectedAddOns,
       price: quote.finalPrice,
       status: 'scheduled',
-      checklist: generateChecklistForJob(input.program, input.selectedAddOns),
+      checklist: generateChecklistForJob(input.program, input.selectedAddOns, settings.extraChecklistItems),
       notes: `Booked from Clean Convictions Estimator. Rate: $${quote.finalPrice}${
         input.referralCode ? ` (Referral Code ${input.referralCode} applied: -$${referralDiscount})` : ''
       }`,
@@ -328,7 +328,7 @@ export default function App({ userEmail }: AppProps) {
             selectedAddOns: job.selectedAddOns,
             price: job.price,
             status: 'scheduled',
-            checklist: generateChecklistForJob(job.program, job.selectedAddOns),
+            checklist: generateChecklistForJob(job.program, job.selectedAddOns, settings.extraChecklistItems),
             notes: 'Auto-scheduled next recurring visit.',
           };
           putDoc('jobs', nextJob.id, nextJob);
@@ -381,7 +381,7 @@ export default function App({ userEmail }: AppProps) {
     const newJob: JobAppointment = {
       ...jobData,
       id: 'job-' + Date.now(),
-      checklist: generateChecklistForJob(jobData.program, jobData.selectedAddOns || []),
+      checklist: generateChecklistForJob(jobData.program, jobData.selectedAddOns || [], settings.extraChecklistItems),
     };
     putDoc('jobs', newJob.id, newJob);
   };
@@ -438,7 +438,8 @@ export default function App({ userEmail }: AppProps) {
       status: 'scheduled',
       checklist: generateChecklistForJob(
         scheduleDetails?.program || client.defaultProgram,
-        client.defaultAddOns || []
+        client.defaultAddOns || [],
+        settings.extraChecklistItems
       ),
       notes: scheduleDetails?.notes || client.specialInstructions || '',
     };
@@ -632,7 +633,7 @@ export default function App({ userEmail }: AppProps) {
       timerStartedAt: undefined,
       cancellationReason: undefined,
       invoiceId: undefined,
-      checklist: generateChecklistForJob(job.program, job.selectedAddOns),
+      checklist: generateChecklistForJob(job.program, job.selectedAddOns, settings.extraChecklistItems),
     };
     putDoc('jobs', newJob.id, newJob);
   };
@@ -744,6 +745,76 @@ export default function App({ userEmail }: AppProps) {
     putDoc('expenses', newExpense.id, newExpense);
   };
 
+  // Set a 1-5 quality rating on a completed job
+  const handleSetJobQuality = (jobId: string, rating: number) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, { ...job, qualityRating: rating });
+  };
+
+  // Duplicate a job onto a new date (quick rebooking of a near-identical visit)
+  const handleDuplicateJob = (jobId: string, date: string, timeSlot: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const newJob: JobAppointment = {
+      ...job,
+      id: 'job-' + Date.now(),
+      date,
+      timeSlot,
+      status: 'scheduled',
+      actualMinutes: undefined,
+      timerStartedAt: undefined,
+      cancellationReason: undefined,
+      invoiceId: undefined,
+      qualityRating: undefined,
+      checklist: generateChecklistForJob(job.program, job.selectedAddOns, settings.extraChecklistItems),
+    };
+    putDoc('jobs', newJob.id, newJob);
+  };
+
+  // Record a partial payment against an invoice; auto-marks paid once fully covered
+  const handleRecordPartialPayment = (invoiceId: string, amount: number, method: Invoice['paymentMethod']) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    if (!inv) return;
+    const newAmountPaid = (inv.amountPaid || 0) + amount;
+    if (newAmountPaid >= inv.totalAmount) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      putDoc('invoices', invoiceId, {
+        ...inv,
+        amountPaid: inv.totalAmount,
+        status: 'paid',
+        paidDate: todayStr,
+        paymentMethod: method,
+      });
+    } else {
+      putDoc('invoices', invoiceId, { ...inv, amountPaid: newAmountPaid });
+    }
+  };
+
+  // Jump to Marketing Hub pre-filled to draft a thank-you note after an invoice is paid
+  const handleDraftThankYou = (invoice: Invoice) => {
+    setMarketingPrefill({
+      mode: 'reply_email',
+      context: `Write a short, warm thank-you message to ${invoice.clientName} for paying invoice ${invoice.invoiceNumber} for their recent cleaning.`,
+    });
+    setActiveTab('marketing');
+  };
+
+  // Jump to Marketing Hub pre-filled with this week's business stats, for a recap post/update
+  const handleDraftWeeklyRecap = () => {
+    const weekAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const weekJobsCompleted = jobs.filter((j) => j.status === 'completed' && j.date >= weekAgoStr).length;
+    const weekRevenue = invoices
+      .filter((i) => i.status === 'paid' && (i.paidDate || '') >= weekAgoStr)
+      .reduce((sum, i) => sum + i.totalAmount, 0);
+    const unpaidTotal = invoices.filter((i) => i.status === 'unpaid').reduce((sum, i) => sum + i.totalAmount, 0);
+    setMarketingPrefill({
+      mode: 'create_post',
+      context: `Write a short weekly business recap update. This week: ${weekJobsCompleted} cleanings completed, $${weekRevenue} in revenue collected, $${unpaidTotal} currently outstanding in unpaid invoices. Keep it upbeat and brief, like a note to myself or my team, not a public post.`,
+    });
+    setActiveTab('marketing');
+  };
+
   // Marketing Hub
   const handleSaveMarketingDraft = (data: Omit<MarketingDraft, 'id' | 'createdAt'>) => {
     const newDraft: MarketingDraft = {
@@ -781,6 +852,7 @@ export default function App({ userEmail }: AppProps) {
             expenses={expenses}
             helperShifts={helperShifts}
             onNavigate={(tab) => setActiveTab(tab)}
+            onDraftWeeklyRecap={handleDraftWeeklyRecap}
           />
         )}
 
@@ -813,6 +885,7 @@ export default function App({ userEmail }: AppProps) {
             onCancelJob={handleCancelJob}
             onRescheduleJob={handleRescheduleJob}
             onDraftOnMyWay={handleDraftOnMyWay}
+            onDuplicateJob={handleDuplicateJob}
           />
         )}
 
@@ -824,6 +897,7 @@ export default function App({ userEmail }: AppProps) {
             onMarkAllCompleted={handleMarkAllCompleted}
             onSaveJobNotes={handleSaveJobNotes}
             onCompleteJob={handleCompleteJob}
+            onSetJobQuality={handleSetJobQuality}
           />
         )}
 
@@ -833,6 +907,7 @@ export default function App({ userEmail }: AppProps) {
             jobs={jobs}
             invoices={invoices}
             settings={settings}
+            referrals={referrals}
             onAddClient={handleAddClient}
             onUpdateClient={handleUpdateClient}
             onDeleteClient={handleDeleteClient}
@@ -856,6 +931,8 @@ export default function App({ userEmail }: AppProps) {
             onAddInvoiceTip={handleAddInvoiceTip}
             onApplyLateFee={handleApplyLateFee}
             onRequestPaymentReminder={handleRequestPaymentReminder}
+            onRecordPartialPayment={handleRecordPartialPayment}
+            onDraftThankYou={handleDraftThankYou}
           />
         )}
 

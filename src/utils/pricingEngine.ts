@@ -366,7 +366,8 @@ Would you like to get this locked in on my schedule? Let me know which morning w
  */
 export function generateChecklistForJob(
   program: CleaningProgram,
-  addOns: string[]
+  addOns: string[],
+  extraItems: string[] = []
 ): ChecklistItem[] {
   const list: ChecklistItem[] = [];
 
@@ -463,6 +464,13 @@ export function generateChecklistForJob(
     { id: 'w2', room: 'wrap-up', task: 'Empty all trash cans to exterior receptacles & reline', isCompleted: false },
     { id: 'w3', room: 'wrap-up', task: 'Lockup check: confirm doors secured, AC set, lights turned off', isCompleted: false }
   );
+
+  // Always-included custom items from Settings
+  extraItems.forEach((task, i) => {
+    if (task.trim()) {
+      list.push({ id: `custom_${i}`, room: 'wrap-up', task: task.trim(), isCompleted: false });
+    }
+  });
 
   return list;
 }

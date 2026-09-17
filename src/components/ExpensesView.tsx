@@ -37,6 +37,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
   const [formAmount, setFormAmount] = useState<number>(0);
   const [formClientId, setFormClientId] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [formIsRecurring, setFormIsRecurring] = useState(false);
 
   const monthPrefix = new Date().toISOString().slice(0, 7);
   const totalThisMonth = expenses.filter((e) => e.date.startsWith(monthPrefix)).reduce((s, e) => s + e.amount, 0);
@@ -53,6 +54,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
     setFormAmount(0);
     setFormClientId('');
     setFormNotes('');
+    setFormIsRecurring(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -66,6 +68,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
       amount: formAmount,
       clientId: formClientId || undefined,
       notes: formNotes.trim() || undefined,
+      isRecurringMonthly: formIsRecurring || undefined,
     });
     resetForm();
     setIsModalOpen(false);
@@ -292,6 +295,16 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
+
+              <label className="flex items-center gap-2 text-slate-700 font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formIsRecurring}
+                  onChange={(e) => setFormIsRecurring(e.target.checked)}
+                  className="cursor-pointer"
+                />
+                Recurring monthly (e.g. insurance) — remind me if not re-logged each month
+              </label>
 
               <button
                 type="submit"

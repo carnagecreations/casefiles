@@ -27,6 +27,8 @@ interface InvoicesViewProps {
   onAddInvoiceTip?: (invoiceId: string, tipAmount: number) => void;
   onApplyLateFee?: (invoiceId: string) => void;
   onRequestPaymentReminder?: (invoice: Invoice) => void;
+  onRecordPartialPayment?: (invoiceId: string, amount: number, method: Invoice['paymentMethod']) => void;
+  onDraftThankYou?: (invoice: Invoice) => void;
 }
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
@@ -37,6 +39,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onAddInvoiceTip,
   onApplyLateFee,
   onRequestPaymentReminder,
+  onRecordPartialPayment,
+  onDraftThankYou,
 }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -306,6 +310,19 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         Paid via {inv.paymentMethod}{inv.tipAmount ? ` (+$${inv.tipAmount} tip)` : ''}
                       </span>
                     )}
+                    {inv.status === 'unpaid' && (inv.amountPaid || 0) > 0 && (
+                      <span className="text-[10px] text-amber-700 font-medium block">
+                        ${inv.amountPaid} paid • ${(inv.totalAmount - (inv.amountPaid || 0)).toFixed(2)} remaining
+                      </span>
+                    )}
+                    {inv.status === 'paid' && onDraftThankYou && (
+                      <button
+                        onClick={() => onDraftThankYou(inv)}
+                        className="text-[10px] text-slate-400 hover:text-emerald-700 font-medium underline"
+                      >
+                        Draft thank-you note
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -349,6 +366,20 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                             title="Apply the configured late fee"
                           >
                             + Late Fee
+                          </button>
+                        )}
+                        {onRecordPartialPayment && (
+                          <button
+                            onClick={() => {
+                              const remaining = inv.totalAmount - (inv.amountPaid || 0);
+                              const amtStr = window.prompt(`Partial payment amount (remaining: $${remaining.toFixed(2)}):`);
+                              const amt = parseFloat(amtStr || '');
+                              if (!isNaN(amt) && amt > 0) onRecordPartialPayment(inv.id, amt, 'Zelle');
+                            }}
+                            className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                            title="Record a partial payment"
+                          >
+                            Partial Pmt
                           </button>
                         )}
                       </div>
