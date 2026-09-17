@@ -54,7 +54,7 @@ const SYSTEM_PROMPTS = {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-App-Secret",
 };
 
@@ -234,6 +234,28 @@ export default {
         return json({ content: (data.data && data.data.content) || "" });
       } catch (err) {
         return json({ error: "Message fetch failed: " + (err && err.message) }, 500);
+      }
+    }
+
+    // ── Delete one message (moves to Trash unless ?permanent=true) ───────
+    if (url.pathname === "/email/message" && request.method === "DELETE") {
+      if (!env.ZOHO_REFRESH_TOKEN) {
+        return json({ error: "Zoho email isn't configured yet on this Worker" }, 400);
+      }
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "id is required" }, 400);
+      const permanent = url.searchParams.get("permanent") === "true";
+      try {
+        const accountId = await getZohoAccountId(env);
+        const folderId = await getZohoInboxFolderId(env, accountId);
+        await zohoFetch(
+          env,
+          `/accounts/${accountId}/folders/${folderId}/messages/${id}?expunge=${permanent ? "true" : "false"}`,
+          { method: "DELETE" }
+        );
+        return json({ deleted: true });
+      } catch (err) {
+        return json({ error: "Delete failed: " + (err && err.message) }, 500);
       }
     }
 

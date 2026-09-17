@@ -45,6 +45,14 @@ export async function fetchMessageContent(settings: PricingSettings, id: string)
   return data.content || '';
 }
 
+export async function deleteMessage(settings: PricingSettings, id: string): Promise<void> {
+  const res = await fetch(workerUrl(settings, `/email/message?id=${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+    headers: { 'X-App-Secret': settings.marketingAiSecret as string },
+  });
+  await handle<{ deleted: boolean }>(res);
+}
+
 export async function sendEmail(
   settings: PricingSettings,
   to: string,

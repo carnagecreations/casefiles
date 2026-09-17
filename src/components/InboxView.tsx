@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Inbox as InboxIcon, RefreshCw, Mail, X, Send, Loader2, AlertTriangle } from 'lucide-react';
+import { Inbox as InboxIcon, RefreshCw, Mail, X, Send, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { PricingSettings } from '../types';
 import {
   InboxMessage,
@@ -7,6 +7,7 @@ import {
   fetchInbox,
   fetchMessageContent,
   sendEmail,
+  deleteMessage,
 } from '../utils/zohoEmailApi';
 
 interface InboxViewProps {
@@ -41,6 +42,7 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<'ok' | 'error' | ''>('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const configured = isZohoEmailConfigured(settings);
@@ -93,6 +95,20 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
     setReplyBody('');
     setReplyOpen(true);
     setSendResult('');
+  };
+
+  const handleDelete = async (m: InboxMessage) => {
+    if (!window.confirm(`Delete this email from ${m.sender || m.from}? It'll move to Trash in Zoho Mail.`)) return;
+    setDeletingId(m.id);
+    try {
+      await deleteMessage(settings, m.id);
+      setMessages((prev) => prev.filter((msg) => msg.id !== m.id));
+      if (selected?.id === m.id) setSelected(null);
+    } catch (e: any) {
+      setError(e?.message || 'Could not delete this message.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSendReply = async () => {
@@ -155,27 +171,34 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
           <p className="p-6 text-center text-xs text-slate-400">No messages yet.</p>
         )}
         {messages.map((m) => (
-          <button
+          <div
             key={m.id}
-            onClick={() => openMessage(m)}
-            className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 cursor-pointer ${
-              m.isUnread ? 'bg-emerald-50/40' : ''
-            }`}
+            className={`w-full flex items-start gap-2 hover:bg-slate-50 ${m.isUnread ? 'bg-emerald-50/40' : ''}`}
           >
-            <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${m.isUnread ? 'bg-emerald-500' : 'bg-transparent'}`} />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className={`text-sm truncate ${m.isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
-                  {m.sender || m.from}
-                </span>
-                <span className="text-[10px] text-slate-400 shrink-0">{timeAgo(m.receivedTime)}</span>
+            <button onClick={() => openMessage(m)} className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3 cursor-pointer">
+              <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${m.isUnread ? 'bg-emerald-500' : 'bg-transparent'}`} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-sm truncate ${m.isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                    {m.sender || m.from}
+                  </span>
+                  <span className="text-[10px] text-slate-400 shrink-0">{timeAgo(m.receivedTime)}</span>
+                </div>
+                <p className={`text-xs truncate ${m.isUnread ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
+                  {m.subject || '(no subject)'}
+                </p>
+                <p className="text-[11px] text-slate-400 truncate">{m.snippet}</p>
               </div>
-              <p className={`text-xs truncate ${m.isUnread ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
-                {m.subject || '(no subject)'}
-              </p>
-              <p className="text-[11px] text-slate-400 truncate">{m.snippet}</p>
-            </div>
-          </button>
+            </button>
+            <button
+              onClick={() => handleDelete(m)}
+              disabled={deletingId === m.id}
+              title="Delete"
+              className="shrink-0 mt-3 mr-3 text-slate-300 hover:text-rose-600 disabled:opacity-50 cursor-pointer"
+            >
+              {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </button>
+          </div>
         ))}
       </div>
 
@@ -190,9 +213,19 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
                   {selected.sender || selected.from} &lt;{selected.from}&gt;
                 </p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer shrink-0">
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => handleDelete(selected)}
+                  disabled={deletingId === selected.id}
+                  title="Delete"
+                  className="text-slate-400 hover:text-rose-600 disabled:opacity-50 cursor-pointer"
+                >
+                  {deletingId === selected.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                </button>
+                <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="p-4 overflow-y-auto text-sm text-slate-700">
