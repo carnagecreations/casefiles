@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Inbox as InboxIcon, RefreshCw, Mail, X, Send, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { Inbox as InboxIcon, RefreshCw, Mail, X, Send, Loader2, AlertTriangle, Trash2, Pencil } from 'lucide-react';
 import { PricingSettings } from '../types';
 import {
   InboxMessage,
@@ -53,6 +53,12 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeTo, setComposeTo] = useState('');
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [composeSending, setComposeSending] = useState(false);
+  const [composeResult, setComposeResult] = useState<'ok' | 'error' | ''>('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const configured = isZohoEmailConfigured(settings);
@@ -187,6 +193,30 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
     setBulkDeleting(false);
   };
 
+  const openCompose = () => {
+    setComposeTo('');
+    setComposeSubject('');
+    setComposeBody('');
+    setComposeResult('');
+    setComposeOpen(true);
+  };
+
+  const handleSendCompose = async () => {
+    if (!composeTo.trim() || !composeBody.trim()) return;
+    setComposeSending(true);
+    setComposeResult('');
+    try {
+      await sendEmail(settings, composeTo.trim(), composeSubject || 'Clean Convictions', composeBody.replace(/\n/g, '<br/>'));
+      setComposeResult('ok');
+      setComposeBody('');
+      if (activeFolder?.folderType === 'Sent') loadMessages(activeFolderId, true);
+    } catch {
+      setComposeResult('error');
+    } finally {
+      setComposeSending(false);
+    }
+  };
+
   const startReply = () => {
     if (!selected) return;
     setReplySubject(selected.subject?.startsWith('Re:') ? selected.subject : `Re: ${selected.subject || ''}`);
@@ -226,14 +256,24 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
             {activeFolder?.folderType === 'Inbox' ? ' — Inbox refreshes automatically every 30 seconds.' : ''}
           </p>
         </div>
-        <button
-          onClick={() => loadMessages(activeFolderId)}
-          disabled={!configured || loading}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCompose}
+            disabled={!configured}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Compose
+          </button>
+          <button
+            onClick={() => loadMessages(activeFolderId)}
+            disabled={!configured || loading}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {!configured && (
@@ -430,6 +470,68 @@ export const InboxView: React.FC<InboxViewProps> = ({ settings, onUnreadCountCha
                 {sendResult === 'error' && <p className="text-xs text-rose-600 mt-2 font-semibold">Send failed — try again.</p>}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Compose new email modal */}
+      {composeOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start justify-center p-4 pt-12 sm:pt-20">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-emerald-600" />
+                New Email
+              </p>
+              <button onClick={() => setComposeOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2">
+              <input
+                type="email"
+                value={composeTo}
+                onChange={(e) => setComposeTo(e.target.value)}
+                placeholder="To: client@email.com"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+              <input
+                value={composeSubject}
+                onChange={(e) => setComposeSubject(e.target.value)}
+                placeholder="Subject"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold"
+              />
+              <textarea
+                value={composeBody}
+                onChange={(e) => setComposeBody(e.target.value)}
+                rows={8}
+                placeholder="Type your message…"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </div>
+
+            <div className="p-4 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSendCompose}
+                  disabled={!composeTo.trim() || !composeBody.trim() || composeSending}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white cursor-pointer"
+                >
+                  {composeSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {composeSending ? 'Sending…' : 'Send'}
+                </button>
+                <button
+                  onClick={() => setComposeOpen(false)}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1.5">Sends immediately from {settings.businessEmail}.</p>
+              {composeResult === 'ok' && <p className="text-xs text-emerald-600 mt-2 font-semibold">Sent.</p>}
+              {composeResult === 'error' && <p className="text-xs text-rose-600 mt-2 font-semibold">Send failed — try again.</p>}
+            </div>
           </div>
         </div>
       )}
