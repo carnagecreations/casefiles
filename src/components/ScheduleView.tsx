@@ -33,6 +33,7 @@ import {
   Timer,
   Search,
   Filter,
+  Megaphone,
 } from 'lucide-react';
 
 interface ScheduleViewProps {
@@ -51,6 +52,7 @@ interface ScheduleViewProps {
   onAssignJob?: (jobId: string, assignedTo: string) => void;
   onCancelJob?: (jobId: string, reason?: string) => void;
   onRescheduleJob?: (jobId: string, date: string, timeSlot: string) => void;
+  onDraftOnMyWay?: (job: JobAppointment) => void;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
@@ -69,6 +71,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onAssignJob,
   onCancelJob,
   onRescheduleJob,
+  onDraftOnMyWay,
 }) => {
   const teamMembers = settings?.teamMembers || [];
 
@@ -807,6 +810,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           <Receipt className="w-3.5 h-3.5 mr-1 text-emerald-600" />
                           {job.invoiceId ? 'View Invoice' : 'Create Invoice'}
                         </button>
+
+                        {onDraftOnMyWay && !isCompleted && job.status !== 'cancelled' && (
+                          <button
+                            onClick={() => onDraftOnMyWay(job)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center transition cursor-pointer"
+                            title="Draft an 'on our way' heads-up message in Marketing Hub"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                            On My Way
+                          </button>
+                        )}
 
                         {/* On-Site Timer / Complete Actions */}
                         {!isCompleted && !isInProgress && (

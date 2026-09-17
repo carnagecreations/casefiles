@@ -86,6 +86,9 @@ export interface Client {
   autoRecurring?: boolean; // auto-book the next visit when a job completes (default true for recurring frequencies)
   tags?: string[]; // free-form segmentation, e.g. "VIP", "At-Risk", "One-Time"
   activityLog?: ClientActivityEntry[]; // running notes/timeline for this client
+  doNotServe?: boolean;
+  doNotServeReason?: string;
+  skipNextVisit?: boolean; // pauses just the next auto-recurring booking, then clears itself
 }
 
 export interface ClientActivityEntry {
@@ -163,6 +166,7 @@ export interface Invoice {
   paymentMethod?: 'Zelle' | 'Cash' | 'Venmo' | 'Card' | 'Check';
   referralCreditApplied?: number;
   tipAmount?: number;
+  lateFeeAmount?: number;
   notes?: string;
 }
 
@@ -201,6 +205,8 @@ export interface PricingSettings {
   marketingAiEndpoint?: string; // Cloudflare Worker URL for the Marketing AI drafting tool
   marketingAiSecret?: string; // shared secret sent as the X-App-Secret header
   teamMembers?: string[]; // names jobs can be assigned to (owner + helpers)
+  mileageRate?: number; // $/mile used to auto-calc a gas expense from logged mileage
+  lateFeePercent?: number; // % of subtotal applied as a late fee on overdue invoices
 }
 
 export type MarketingDraftMode = 'reply_email' | 'reply_post' | 'create_post';

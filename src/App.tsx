@@ -302,7 +302,10 @@ export default function App({ userEmail }: AppProps) {
     // frequency, auto-recurring hasn't been turned off for them, and they
     // don't already have a future job on the books.
     const client = clients.find((c) => c.id === job.clientId);
-    if (client && client.autoRecurring !== false) {
+    if (client && client.skipNextVisit) {
+      // Consume the skip flag once, without auto-booking this cycle.
+      putDoc('clients', client.id, { ...client, skipNextVisit: false });
+    } else if (client && client.autoRecurring !== false) {
       const nextDate = nextRecurrenceDate(job.date, client.preferredFrequency);
       if (nextDate) {
         const hasFutureJob = jobs.some(
@@ -679,6 +682,68 @@ export default function App({ userEmail }: AppProps) {
     putDoc('expenses', expenseId, { ...exp, isLowStock: !exp.isLowStock });
   };
 
+  // Do-Not-Serve flag on a client
+  const handleSetDoNotServe = (clientId: string, doNotServe: boolean, reason?: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    putDoc('clients', clientId, { ...client, doNotServe, doNotServeReason: doNotServe ? reason : undefined });
+  };
+
+  // Skip just the next auto-recurring visit for a client (consumed once in handleCompleteJob)
+  const handleToggleSkipNextVisit = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    putDoc('clients', clientId, { ...client, skipNextVisit: !client.skipNextVisit });
+  };
+
+  // Apply a late fee to an overdue unpaid invoice, based on settings.lateFeePercent
+  const handleApplyLateFee = (invoiceId: string) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    if (!inv) return;
+    const feePercent = settings.lateFeePercent || 0;
+    const lateFeeAmount = Math.round(inv.subtotal * (feePercent / 100) * 100) / 100;
+    putDoc('invoices', invoiceId, {
+      ...inv,
+      lateFeeAmount,
+      totalAmount: inv.subtotal - inv.discountTotal + (inv.tipAmount || 0) + lateFeeAmount,
+    });
+  };
+
+  // Jump to Marketing Hub pre-filled to draft a payment reminder for an overdue invoice
+  const handleRequestPaymentReminder = (invoice: Invoice) => {
+    setMarketingPrefill({
+      mode: 'reply_email',
+      context: `Write a polite but firm payment reminder to ${invoice.clientName} for invoice ${invoice.invoiceNumber}, $${invoice.totalAmount} due ${invoice.dueDate}, for the cleaning service completed on ${invoice.serviceDate}.`,
+    });
+    setActiveTab('marketing');
+  };
+
+  // Jump to Marketing Hub pre-filled to draft an "on our way" heads-up text for a job today
+  const handleDraftOnMyWay = (job: JobAppointment) => {
+    setMarketingPrefill({
+      mode: 'reply_email',
+      context: `Write a short, friendly "we're on our way" heads-up message to ${job.clientName} for their ${job.timeSlot} cleaning appointment today.`,
+    });
+    setActiveTab('marketing');
+  };
+
+  // Log mileage as a gas expense using the configured $/mile rate
+  const handleLogMileage = (miles: number, date: string, jobId?: string) => {
+    const rate = settings.mileageRate || 0.67;
+    const amount = Math.round(miles * rate * 100) / 100;
+    const job = jobId ? jobs.find((j) => j.id === jobId) : undefined;
+    const newExpense: Expense = {
+      id: 'exp-' + Date.now(),
+      date,
+      category: 'gas',
+      description: `${miles} mi @ $${rate}/mi${job ? ` — ${job.clientName}` : ''}`,
+      amount,
+      jobId,
+      clientId: job?.clientId,
+    };
+    putDoc('expenses', newExpense.id, newExpense);
+  };
+
   // Marketing Hub
   const handleSaveMarketingDraft = (data: Omit<MarketingDraft, 'id' | 'createdAt'>) => {
     const newDraft: MarketingDraft = {
@@ -701,6 +766,7 @@ export default function App({ userEmail }: AppProps) {
         setActiveTab={setActiveTab}
         jobs={jobs}
         invoices={invoices}
+        clients={clients}
         activeJobId={inProgressJob?.id}
         pendingReferralsCount={referrals.filter((r) => r.status === 'pending').length}
       />
@@ -746,6 +812,7 @@ export default function App({ userEmail }: AppProps) {
             onAssignJob={handleAssignJob}
             onCancelJob={handleCancelJob}
             onRescheduleJob={handleRescheduleJob}
+            onDraftOnMyWay={handleDraftOnMyWay}
           />
         )}
 
@@ -775,6 +842,8 @@ export default function App({ userEmail }: AppProps) {
             onUpdateClientTags={handleUpdateClientTags}
             onAddClientActivity={handleAddClientActivity}
             onRequestReview={handleRequestReview}
+            onSetDoNotServe={handleSetDoNotServe}
+            onToggleSkipNextVisit={handleToggleSkipNextVisit}
           />
         )}
 
@@ -785,6 +854,8 @@ export default function App({ userEmail }: AppProps) {
             onMarkPaid={handleMarkPaid}
             onCreateInvoice={handleCreateCustomInvoice}
             onAddInvoiceTip={handleAddInvoiceTip}
+            onApplyLateFee={handleApplyLateFee}
+            onRequestPaymentReminder={handleRequestPaymentReminder}
           />
         )}
 
@@ -796,6 +867,8 @@ export default function App({ userEmail }: AppProps) {
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
             onToggleLowStock={handleToggleLowStock}
+            onLogMileage={handleLogMileage}
+            settings={settings}
           />
         )}
 

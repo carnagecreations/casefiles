@@ -25,6 +25,8 @@ interface InvoicesViewProps {
   onMarkPaid: (invoiceId: string, method: Invoice['paymentMethod']) => void;
   onCreateInvoice: (invoice: Omit<Invoice, 'id'>) => void;
   onAddInvoiceTip?: (invoiceId: string, tipAmount: number) => void;
+  onApplyLateFee?: (invoiceId: string) => void;
+  onRequestPaymentReminder?: (invoice: Invoice) => void;
 }
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
@@ -33,6 +35,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onMarkPaid,
   onCreateInvoice,
   onAddInvoiceTip,
+  onApplyLateFee,
+  onRequestPaymentReminder,
 }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -282,6 +286,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     <p className="text-xs text-slate-500">
                       Service Date: {inv.serviceDate} • {inv.clientAddress}
                     </p>
+                    {inv.status === 'unpaid' && inv.dueDate < new Date().toISOString().split('T')[0] && (
+                      <p className="text-[11px] font-semibold text-rose-600 mt-0.5">
+                        Overdue since {inv.dueDate}{inv.lateFeeAmount ? ` • $${inv.lateFeeAmount} late fee applied` : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -324,6 +333,24 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         >
                           Mark Paid
                         </button>
+                        {onRequestPaymentReminder && (
+                          <button
+                            onClick={() => onRequestPaymentReminder(inv)}
+                            className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold cursor-pointer"
+                            title="Draft a payment reminder in Marketing Hub"
+                          >
+                            Remind
+                          </button>
+                        )}
+                        {onApplyLateFee && inv.dueDate < new Date().toISOString().split('T')[0] && !inv.lateFeeAmount && (
+                          <button
+                            onClick={() => onApplyLateFee(inv.id)}
+                            className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold cursor-pointer"
+                            title="Apply the configured late fee"
+                          >
+                            + Late Fee
+                          </button>
+                        )}
                       </div>
                     )}
 

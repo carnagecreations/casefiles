@@ -39,6 +39,20 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
   const sorted = [...helperShifts].sort((a, b) => b.date.localeCompare(a.date));
 
+  // Performance per assigned team member, from completed jobs
+  const performanceByMember = (() => {
+    const map = new Map<string, { completed: number; revenue: number }>();
+    jobs
+      .filter((j) => j.status === 'completed' && j.assignedTo)
+      .forEach((j) => {
+        const cur = map.get(j.assignedTo as string) || { completed: 0, revenue: 0 };
+        cur.completed += 1;
+        cur.revenue += j.price;
+        map.set(j.assignedTo as string, cur);
+      });
+    return Array.from(map.entries()).sort((a, b) => b[1].revenue - a[1].revenue);
+  })();
+
   const resetForm = () => {
     setFormDate(new Date().toISOString().split('T')[0]);
     setFormHelperName(settings.helperName || '');
@@ -94,6 +108,24 @@ export const TeamView: React.FC<TeamViewProps> = ({
           <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600">${payOwed.toLocaleString()}</div>
         </div>
       </div>
+
+      {performanceByMember.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 mb-6">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+            Job Performance by Team Member (Assigned Jobs)
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {performanceByMember.map(([name, stats]) => (
+              <div key={name} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                <span className="text-sm font-semibold text-slate-800">{name}</span>
+                <span className="text-xs text-slate-500">
+                  {stats.completed} {stats.completed === 1 ? 'clean' : 'cleans'} • <span className="font-bold text-slate-900">${stats.revenue.toLocaleString()}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs divide-y divide-slate-100">
         {sorted.length === 0 && (

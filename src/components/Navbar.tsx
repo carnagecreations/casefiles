@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calculator,
   CalendarDays,
@@ -15,8 +15,9 @@ import {
   Menu,
   X,
   Megaphone,
+  Search,
 } from 'lucide-react';
-import { JobAppointment, Invoice } from '../types';
+import { JobAppointment, Invoice, Client } from '../types';
 
 export type AppTab =
   | 'dashboard'
@@ -36,6 +37,7 @@ interface NavbarProps {
   setActiveTab: (tab: AppTab) => void;
   jobs: JobAppointment[];
   invoices: Invoice[];
+  clients?: Client[];
   activeJobId?: string;
   pendingReferralsCount?: number;
 }
@@ -45,9 +47,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   jobs,
   invoices,
+  clients = [],
   activeJobId,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { clients: [], jobs: [], invoices: [] };
+    return {
+      clients: clients.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.address.toLowerCase().includes(q)).slice(0, 5),
+      jobs: jobs.filter((j) => j.clientName.toLowerCase().includes(q) || j.address.toLowerCase().includes(q) || j.date.includes(q)).slice(0, 5),
+      invoices: invoices.filter((i) => i.clientName.toLowerCase().includes(q) || i.invoiceNumber.toLowerCase().includes(q)).slice(0, 5),
+    };
+  }, [searchQuery, clients, jobs, invoices]);
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+  };
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayJobs = jobs.filter((j) => j.date === todayStr);
@@ -135,15 +155,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setIsMenuOpen((v) => !v)}
-              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={isMenuOpen}
-              className="md:hidden shrink-0 ml-3 w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center cursor-pointer"
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            <div className="flex items-center gap-2 shrink-0 ml-3">
+              {/* Global search */}
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                aria-label="Search"
+                className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center cursor-pointer"
+              >
+                <Search className="w-4.5 h-4.5" />
+              </button>
+
+              {/* Mobile menu toggle */}
+              <button
+                onClick={() => setIsMenuOpen((v) => !v)}
+                aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={isMenuOpen}
+                className="md:hidden w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center cursor-pointer"
+              >
+                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {/* Live Business Pulse Stats — compact 2-up grid on mobile, single row from sm up */}
@@ -232,6 +263,93 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             ))}
           </nav>
+        </div>
+      )}
+
+      {/* Global Search Modal */}
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start justify-center p-4 pt-20">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+              <Search className="w-4 h-4 text-slate-400" />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search clients, appointments, invoices..."
+                className="flex-1 text-sm text-slate-900 focus:outline-none"
+              />
+              <button onClick={closeSearch} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {searchQuery.trim() && (
+              <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                {searchResults.clients.length === 0 && searchResults.jobs.length === 0 && searchResults.invoices.length === 0 && (
+                  <p className="p-4 text-xs text-slate-400 text-center">No matches found.</p>
+                )}
+
+                {searchResults.clients.length > 0 && (
+                  <div className="p-2">
+                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Clients</p>
+                    {searchResults.clients.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setActiveTab('clients');
+                          closeSearch();
+                        }}
+                        className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-between"
+                      >
+                        <span className="font-semibold text-slate-800">{c.name}</span>
+                        <span className="text-slate-400">{c.phone}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {searchResults.jobs.length > 0 && (
+                  <div className="p-2">
+                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Appointments</p>
+                    {searchResults.jobs.map((j) => (
+                      <button
+                        key={j.id}
+                        onClick={() => {
+                          setActiveTab('schedule');
+                          closeSearch();
+                        }}
+                        className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-between"
+                      >
+                        <span className="font-semibold text-slate-800">{j.clientName}</span>
+                        <span className="text-slate-400">{j.date}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {searchResults.invoices.length > 0 && (
+                  <div className="p-2">
+                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Invoices</p>
+                    {searchResults.invoices.map((i) => (
+                      <button
+                        key={i.id}
+                        onClick={() => {
+                          setActiveTab('invoices');
+                          closeSearch();
+                        }}
+                        className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-between"
+                      >
+                        <span className="font-semibold text-slate-800">{i.invoiceNumber} • {i.clientName}</span>
+                        <span className="text-slate-400">${i.totalAmount}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </header>

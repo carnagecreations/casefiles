@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Expense, ExpenseCategory, Client, JobAppointment } from '../types';
+import { Expense, ExpenseCategory, Client, JobAppointment, PricingSettings } from '../types';
 import { Plus, DollarSign, Trash2, X, Fuel, Wrench, ShieldCheck, Megaphone, Package, Users, MoreHorizontal, Download, AlertTriangle } from 'lucide-react';
 import { exportToCSV } from '../utils/csvExport';
 
@@ -10,6 +10,8 @@ interface ExpensesViewProps {
   onAddExpense: (data: Omit<Expense, 'id'>) => void;
   onDeleteExpense: (id: string) => void;
   onToggleLowStock?: (id: string) => void;
+  onLogMileage?: (miles: number, date: string, jobId?: string) => void;
+  settings?: PricingSettings;
 }
 
 const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: React.ReactNode; color: string }> = {
@@ -22,8 +24,11 @@ const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: React.ReactN
   other: { label: 'Other', icon: <MoreHorizontal className="w-3.5 h-3.5" />, color: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
 
-export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, jobs, onAddExpense, onDeleteExpense, onToggleLowStock }) => {
+export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, jobs, onAddExpense, onDeleteExpense, onToggleLowStock, onLogMileage, settings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMileageModalOpen, setIsMileageModalOpen] = useState(false);
+  const [mileageMiles, setMileageMiles] = useState<number>(0);
+  const [mileageDate, setMileageDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'all'>('all');
 
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
@@ -97,6 +102,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Export CSV
           </button>
+          {onLogMileage && (
+            <button
+              onClick={() => setIsMileageModalOpen(true)}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center cursor-pointer"
+            >
+              <Fuel className="w-3.5 h-3.5 mr-1.5" />
+              Log Mileage
+            </button>
+          )}
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer"
@@ -287,6 +301,56 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
                 Save Expense
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isMileageModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">Log Mileage</h3>
+              <button onClick={() => setIsMileageModalOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={mileageDate}
+                  onChange={(e) => setMileageDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Miles Driven</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={mileageMiles || ''}
+                  onChange={(e) => setMileageMiles(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  At ${(settings?.mileageRate || 0.67).toFixed(2)}/mile, this logs ${(mileageMiles * (settings?.mileageRate || 0.67)).toFixed(2)} as a gas expense.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!onLogMileage || mileageMiles <= 0) return;
+                  onLogMileage(mileageMiles, mileageDate);
+                  setMileageMiles(0);
+                  setIsMileageModalOpen(false);
+                }}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center cursor-pointer"
+              >
+                <DollarSign className="w-3.5 h-3.5 mr-1.5" />
+                Log Mileage Expense
+              </button>
+            </div>
           </div>
         </div>
       )}

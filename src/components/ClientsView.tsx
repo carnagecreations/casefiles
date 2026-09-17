@@ -59,7 +59,11 @@ interface ClientsViewProps {
   onUpdateClientTags?: (clientId: string, tags: string[]) => void;
   onAddClientActivity?: (clientId: string, note: string) => void;
   onRequestReview?: (client: Client) => void;
+  onSetDoNotServe?: (clientId: string, doNotServe: boolean, reason?: string) => void;
+  onToggleSkipNextVisit?: (clientId: string) => void;
 }
+
+const LOYALTY_MILESTONES = [5, 10, 25, 50, 100];
 
 const COMMON_TAGS = ['VIP', 'At-Risk', 'One-Time', 'Referral Source', 'Price-Sensitive'];
 
@@ -77,6 +81,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   onUpdateClientTags,
   onAddClientActivity,
   onRequestReview,
+  onSetDoNotServe,
+  onToggleSkipNextVisit,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -393,6 +399,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       <span className="text-xs text-slate-400 capitalize font-medium">
                         {client.preferredFrequency}
                       </span>
+                      {client.doNotServe && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                          Do Not Serve
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-base font-bold text-slate-900 mt-1.5">
                       {client.name}
@@ -958,7 +969,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                   <div className="bg-emerald-50 border border-emerald-200/80 p-2.5 rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-emerald-700 block">
-                      Total Paid
+                      Lifetime Value
                     </span>
                     <span className="text-lg font-bold text-emerald-900">${totalPaid}</span>
                   </div>
@@ -968,6 +979,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       Completed Cleans
                     </span>
                     <span className="text-lg font-bold text-slate-900">{completedCount}</span>
+                    {(() => {
+                      const milestone = [...LOYALTY_MILESTONES].reverse().find((m) => completedCount >= m);
+                      return milestone ? (
+                        <span className="block text-[10px] font-bold text-amber-600 mt-0.5">🏆 {milestone}+ club</span>
+                      ) : null;
+                    })()}
                   </div>
 
                   <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
@@ -1027,6 +1044,36 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   >
                     <Star className="w-3.5 h-3.5 mr-1 fill-amber-400 text-amber-500" />
                     Draft a review request for this client
+                  </button>
+                )}
+
+                {onToggleSkipNextVisit && historyClient.preferredFrequency !== 'one-time' && (
+                  <button
+                    onClick={() => {
+                      onToggleSkipNextVisit(historyClient.id);
+                      setHistoryClient({ ...historyClient, skipNextVisit: !historyClient.skipNextVisit });
+                    }}
+                    className={`mt-2 text-xs font-semibold flex items-center ${
+                      historyClient.skipNextVisit ? 'text-amber-700' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {historyClient.skipNextVisit ? '✓ Skipping next auto-scheduled visit' : 'Skip next auto-scheduled visit'}
+                  </button>
+                )}
+
+                {onSetDoNotServe && (
+                  <button
+                    onClick={() => {
+                      const next = !historyClient.doNotServe;
+                      const reason = next ? window.prompt('Reason (optional):') || undefined : undefined;
+                      onSetDoNotServe(historyClient.id, next, reason);
+                      setHistoryClient({ ...historyClient, doNotServe: next, doNotServeReason: reason });
+                    }}
+                    className={`mt-2 text-xs font-semibold flex items-center ${
+                      historyClient.doNotServe ? 'text-rose-700' : 'text-slate-400 hover:text-rose-600'
+                    }`}
+                  >
+                    {historyClient.doNotServe ? `🚫 Marked Do Not Serve${historyClient.doNotServeReason ? ` — ${historyClient.doNotServeReason}` : ''}` : 'Mark as Do Not Serve'}
                   </button>
                 )}
               </div>

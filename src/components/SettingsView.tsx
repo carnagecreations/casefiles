@@ -329,6 +329,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
             <p className="text-[10px] text-slate-400 mt-1">Comma-separated names. These show up as assignable options on Schedule.</p>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs mt-4">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Mileage Rate ($/mile)</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={formSettings.mileageRate ?? ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, mileageRate: parseFloat(e.target.value) || 0 }))}
+                className="w-full font-bold text-slate-900 px-3 py-2 border border-slate-300 rounded-lg"
+                placeholder="0.67"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">Used by "Log Mileage" on the Expenses tab (2026 IRS standard rate default).</p>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Late Fee (%)</label>
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={formSettings.lateFeePercent ?? ''}
+                onChange={(e) => setFormSettings((prev) => ({ ...prev, lateFeePercent: parseFloat(e.target.value) || 0 }))}
+                className="w-full font-bold text-slate-900 px-3 py-2 border border-slate-300 rounded-lg"
+                placeholder="5"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">Applied via the "+ Late Fee" button on overdue invoices.</p>
+            </div>
+          </div>
         </div>
 
         {/* Marketing AI */}
