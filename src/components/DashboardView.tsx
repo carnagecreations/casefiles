@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Gift,
   ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -76,6 +77,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, 5);
 
+  const lowStockItems = expenses.filter((e) => e.isLowStock);
+
   return (
     <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="mb-6">
@@ -84,6 +87,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           Where Clean Convictions stands right now, at a glance.
         </p>
       </div>
+
+      {lowStockItems.length > 0 && (
+        <button
+          onClick={() => onNavigate('expenses')}
+          className="w-full mb-6 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs flex items-center gap-2 text-left hover:bg-amber-100 transition-colors cursor-pointer"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>
+            <span className="font-semibold">Running low on supplies: </span>
+            {lowStockItems.map((e) => e.description).join(', ')}
+          </span>
+        </button>
+      )}
 
       {/* Financial stat tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

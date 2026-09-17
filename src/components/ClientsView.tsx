@@ -36,8 +36,11 @@ import {
   Share2,
   Copy,
   Check,
+  Download,
+  Star,
 } from 'lucide-react';
 import { generateReferralCode } from '../utils/starterData';
+import { exportToCSV } from '../utils/csvExport';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -53,7 +56,12 @@ interface ClientsViewProps {
     client: Client,
     scheduleDetails?: { date: string; timeSlot: string; notes?: string; agreedRate?: number; program?: CleaningProgram }
   ) => void;
+  onUpdateClientTags?: (clientId: string, tags: string[]) => void;
+  onAddClientActivity?: (clientId: string, note: string) => void;
+  onRequestReview?: (client: Client) => void;
 }
+
+const COMMON_TAGS = ['VIP', 'At-Risk', 'One-Time', 'Referral Source', 'Price-Sensitive'];
 
 export const ClientsView: React.FC<ClientsViewProps> = ({
   clients,
@@ -66,13 +74,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   onDeleteJob,
   onLoadIntoEstimator,
   onScheduleForClient,
+  onUpdateClientTags,
+  onAddClientActivity,
+  onRequestReview,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterTag, setFilterTag] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
+  const [newActivityNote, setNewActivityNote] = useState('');
 
   // Booking Modal State (Date & Time of cleaning)
   const [bookingModalClient, setBookingModalClient] = useState<Client | null>(null);
@@ -145,9 +158,27 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
     const matchesFreq = filterFrequency === 'all' || c.preferredFrequency === filterFrequency;
     const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
+    const matchesTag = filterTag === 'all' || (c.tags || []).includes(filterTag);
 
-    return matchesSearch && matchesFreq && matchesStatus;
+    return matchesSearch && matchesFreq && matchesStatus && matchesTag;
   });
+
+  const handleExportClientsCSV = () => {
+    exportToCSV(
+      clients.map((c) => ({
+        Name: c.name,
+        Phone: c.phone,
+        Email: c.email,
+        Address: c.address,
+        City: c.city,
+        Frequency: c.preferredFrequency,
+        AgreedRate: c.agreedRate,
+        Status: c.status,
+        Tags: (c.tags || []).join('; '),
+      })),
+      `clean-convictions-clients-${new Date().toISOString().split('T')[0]}.csv`
+    );
+  };
 
   const openAddModal = () => {
     setEditingClient(null);
@@ -267,13 +298,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={openAddModal}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer self-start md:self-auto"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add New Client
-          </button>
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <button
+              onClick={handleExportClientsCSV}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center cursor-pointer"
+              title="Export all clients to CSV"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Export CSV
+            </button>
+            <button
+              onClick={openAddModal}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add New Client
+            </button>
+          </div>
         </div>
 
         {/* Filter bar */}
@@ -311,6 +352,17 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <option value="active">Active Recurring</option>
               <option value="lead">New Leads</option>
               <option value="paused">Paused</option>
+            </select>
+
+            <select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              className="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
+            >
+              <option value="all">All Tags</option>
+              {COMMON_TAGS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -936,6 +988,88 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </div>
               );
             })()}
+
+            {/* Tags & Activity Notes */}
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center">
+                  <Tag className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+                  Tags
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMON_TAGS.map((tag) => {
+                    const active = (historyClient.tags || []).includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          if (!onUpdateClientTags) return;
+                          const current = historyClient.tags || [];
+                          const next = active ? current.filter((t) => t !== tag) : [...current, tag];
+                          onUpdateClientTags(historyClient.id, next);
+                          setHistoryClient({ ...historyClient, tags: next });
+                        }}
+                        className={`text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
+                          active
+                            ? 'bg-indigo-600 border-indigo-600 text-white'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                {onRequestReview && (
+                  <button
+                    onClick={() => onRequestReview(historyClient)}
+                    className="mt-3 text-xs font-semibold text-amber-700 hover:text-amber-900 flex items-center"
+                  >
+                    <Star className="w-3.5 h-3.5 mr-1 fill-amber-400 text-amber-500" />
+                    Draft a review request for this client
+                  </button>
+                )}
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center">
+                  <History className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+                  Activity Notes
+                </h4>
+                {onAddClientActivity && (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <input
+                      type="text"
+                      value={newActivityNote}
+                      onChange={(e) => setNewActivityNote(e.target.value)}
+                      placeholder="e.g. Called about rescheduling next visit"
+                      className="flex-1 text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!newActivityNote.trim()) return;
+                        onAddClientActivity(historyClient.id, newActivityNote);
+                        setNewActivityNote('');
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+                <div className="max-h-28 overflow-y-auto space-y-1">
+                  {(historyClient.activityLog || []).length === 0 && (
+                    <p className="text-[11px] text-slate-400">No notes logged yet.</p>
+                  )}
+                  {[...(historyClient.activityLog || [])].reverse().map((entry) => (
+                    <div key={entry.id} className="text-[11px] bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5">
+                      <span className="text-slate-400 mr-1.5">{entry.date}</span>
+                      <span className="text-slate-700">{entry.note}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {/* Service Timeline */}
             <div className="mt-5">

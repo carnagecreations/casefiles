@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MarketingDraft, MarketingDraftMode, PricingSettings } from '../types';
 import {
   Megaphone,
@@ -17,6 +17,8 @@ interface MarketingHubViewProps {
   settings: PricingSettings;
   onSaveDraft: (data: Omit<MarketingDraft, 'id' | 'createdAt'>) => void;
   onDeleteDraft: (id: string) => void;
+  prefill?: { mode: MarketingDraftMode; context: string };
+  onPrefillConsumed?: () => void;
 }
 
 const MODE_META: Record<MarketingDraftMode, { label: string; icon: React.ReactNode; placeholder: string; contextLabel: string }> = {
@@ -61,7 +63,14 @@ const POST_IDEAS: string[] = [
   'Share a satisfying checklist / cleaning routine we use so people see the thoroughness',
 ];
 
-export const MarketingHubView: React.FC<MarketingHubViewProps> = ({ drafts, settings, onSaveDraft, onDeleteDraft }) => {
+export const MarketingHubView: React.FC<MarketingHubViewProps> = ({
+  drafts,
+  settings,
+  onSaveDraft,
+  onDeleteDraft,
+  prefill,
+  onPrefillConsumed,
+}) => {
   const [mode, setMode] = useState<MarketingDraftMode>('reply_post');
   const [context, setContext] = useState('');
   const [tone, setTone] = useState('Friendly');
@@ -70,6 +79,15 @@ export const MarketingHubView: React.FC<MarketingHubViewProps> = ({ drafts, sett
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (prefill) {
+      setMode(prefill.mode);
+      setContext(prefill.context);
+      onPrefillConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
 
   const isConfigured = !!(settings.marketingAiEndpoint && settings.marketingAiSecret);
 

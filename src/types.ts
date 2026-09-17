@@ -84,6 +84,14 @@ export interface Client {
   referredByName?: string;
   referralCreditBalance?: number;
   autoRecurring?: boolean; // auto-book the next visit when a job completes (default true for recurring frequencies)
+  tags?: string[]; // free-form segmentation, e.g. "VIP", "At-Risk", "One-Time"
+  activityLog?: ClientActivityEntry[]; // running notes/timeline for this client
+}
+
+export interface ClientActivityEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  note: string;
 }
 
 export interface ChecklistItem {
@@ -114,6 +122,9 @@ export interface JobAppointment {
   notes?: string;
   invoiceId?: string;
   routeOrder?: number;
+  assignedTo?: string; // team member this job is assigned to
+  timerStartedAt?: string; // ISO timestamp while the on-site timer is running
+  cancellationReason?: string;
 }
 
 export interface BlockedTime {
@@ -151,6 +162,7 @@ export interface Invoice {
   paidDate?: string;
   paymentMethod?: 'Zelle' | 'Cash' | 'Venmo' | 'Card' | 'Check';
   referralCreditApplied?: number;
+  tipAmount?: number;
   notes?: string;
 }
 
@@ -188,6 +200,7 @@ export interface PricingSettings {
   helperHourlyRate?: number; // default $/hr pre-filled on new hour entries
   marketingAiEndpoint?: string; // Cloudflare Worker URL for the Marketing AI drafting tool
   marketingAiSecret?: string; // shared secret sent as the X-App-Secret header
+  teamMembers?: string[]; // names jobs can be assigned to (owner + helpers)
 }
 
 export type MarketingDraftMode = 'reply_email' | 'reply_post' | 'create_post';
@@ -220,6 +233,7 @@ export interface Expense {
   jobId?: string;
   clientId?: string;
   notes?: string;
+  isLowStock?: boolean; // flagged as running low / needs reordering soon
 }
 
 export interface HelperShift {

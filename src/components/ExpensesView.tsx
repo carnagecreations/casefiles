@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Client, JobAppointment } from '../types';
-import { Plus, DollarSign, Trash2, X, Fuel, Wrench, ShieldCheck, Megaphone, Package, Users, MoreHorizontal } from 'lucide-react';
+import { Plus, DollarSign, Trash2, X, Fuel, Wrench, ShieldCheck, Megaphone, Package, Users, MoreHorizontal, Download, AlertTriangle } from 'lucide-react';
+import { exportToCSV } from '../utils/csvExport';
 
 interface ExpensesViewProps {
   expenses: Expense[];
@@ -8,6 +9,7 @@ interface ExpensesViewProps {
   jobs: JobAppointment[];
   onAddExpense: (data: Omit<Expense, 'id'>) => void;
   onDeleteExpense: (id: string) => void;
+  onToggleLowStock?: (id: string) => void;
 }
 
 const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: React.ReactNode; color: string }> = {
@@ -20,7 +22,7 @@ const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: React.ReactN
   other: { label: 'Other', icon: <MoreHorizontal className="w-3.5 h-3.5" />, color: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
 
-export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, jobs, onAddExpense, onDeleteExpense }) => {
+export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, jobs, onAddExpense, onDeleteExpense, onToggleLowStock }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'all'>('all');
 
@@ -64,6 +66,21 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
     setIsModalOpen(false);
   };
 
+  const handleExportCSV = () => {
+    exportToCSV(
+      expenses.map((e) => ({
+        Date: e.date,
+        Category: CATEGORY_META[e.category].label,
+        Description: e.description,
+        Amount: e.amount,
+        Client: e.clientId ? clients.find((c) => c.id === e.clientId)?.name || '' : '',
+        LowStock: e.isLowStock ? 'Yes' : '',
+        Notes: e.notes || '',
+      })),
+      `clean-convictions-expenses-${new Date().toISOString().split('T')[0]}.csv`
+    );
+  };
+
   return (
     <div className="py-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between mb-6">
@@ -71,13 +88,23 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
           <h2 className="text-xl font-bold text-slate-900">Business Expenses</h2>
           <p className="text-xs text-slate-500 mt-0.5">Supplies, gas, equipment — everything it costs to run Clean Convictions.</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5 mr-1.5" />
-          Log Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center cursor-pointer"
+            title="Export all expenses to CSV"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            Log Expense
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -126,7 +153,14 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
                 {CATEGORY_META[exp.category].icon}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800 truncate">{exp.description}</div>
+                <div className="text-sm font-semibold text-slate-800 truncate flex items-center gap-1.5">
+                  {exp.description}
+                  {exp.isLowStock && (
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 shrink-0">
+                      <AlertTriangle className="w-2.5 h-2.5" /> Low stock
+                    </span>
+                  )}
+                </div>
                 <div className="text-[11px] text-slate-400">
                   {exp.date} • {CATEGORY_META[exp.category].label}
                   {exp.clientId && clients.find((c) => c.id === exp.clientId) && (
@@ -136,6 +170,18 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, clients, j
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
+              {onToggleLowStock && exp.category === 'supplies' && (
+                <button
+                  onClick={() => onToggleLowStock(exp.id)}
+                  className={`text-[10px] font-semibold px-2 py-1 rounded-lg border cursor-pointer ${
+                    exp.isLowStock
+                      ? 'bg-amber-500 border-amber-500 text-white'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300'
+                  }`}
+                >
+                  {exp.isLowStock ? 'Low stock' : 'Mark low stock'}
+                </button>
+              )}
               <span className="text-sm font-bold text-slate-900">${exp.amount.toLocaleString()}</span>
               <button
                 onClick={() => onDeleteExpense(exp.id)}

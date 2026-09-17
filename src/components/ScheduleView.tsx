@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { JobAppointment, Client, BlockedTime, CleaningProgram } from '../types';
+import { JobAppointment, Client, BlockedTime, CleaningProgram, PricingSettings } from '../types';
 import { optimizeDailyRoute, RouteOptimizationResult } from '../utils/routeOptimizer';
 import {
   Calendar,
@@ -47,6 +47,10 @@ interface ScheduleViewProps {
   onAddBlockedTime: (blocked: Omit<BlockedTime, 'id'>) => void;
   onDeleteBlockedTime: (id: string) => void;
   onUpdateJobRouteOrder?: (orderedJobs: { id: string; routeOrder: number; timeSlot?: string }[]) => void;
+  settings?: PricingSettings;
+  onAssignJob?: (jobId: string, assignedTo: string) => void;
+  onCancelJob?: (jobId: string, reason?: string) => void;
+  onRescheduleJob?: (jobId: string, date: string, timeSlot: string) => void;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
@@ -61,7 +65,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onAddBlockedTime,
   onDeleteBlockedTime,
   onUpdateJobRouteOrder,
+  settings,
+  onAssignJob,
+  onCancelJob,
+  onRescheduleJob,
 }) => {
+  const teamMembers = settings?.teamMembers || [];
+
+  const handleCancelClick = (jobId: string) => {
+    if (!onCancelJob) return;
+    const reason = window.prompt('Cancellation reason (optional):') || undefined;
+    onCancelJob(jobId, reason);
+  };
+
+  const handleRescheduleClick = (job: JobAppointment) => {
+    if (!onRescheduleJob) return;
+    const newDate = window.prompt('Reschedule to which date? (YYYY-MM-DD)', job.date);
+    if (!newDate) return;
+    const newTimeSlot = window.prompt('Time slot for the new date?', job.timeSlot) || job.timeSlot;
+    onRescheduleJob(job.id, newDate, newTimeSlot);
+  };
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'all'>('daily');
@@ -694,11 +717,30 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                               On-Site In Progress
                             </span>
                           )}
+
+                          {job.assignedTo && (
+                            <span className="text-[11px] font-bold bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full">
+                              👤 {job.assignedTo}
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-base font-bold text-slate-900 mt-2">
                           {job.clientName}
                         </h3>
+
+                        {onAssignJob && teamMembers.length > 0 && (
+                          <select
+                            value={job.assignedTo || ''}
+                            onChange={(e) => onAssignJob(job.id, e.target.value)}
+                            className="mt-1.5 text-[11px] px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 cursor-pointer"
+                          >
+                            <option value="">Assign to…</option>
+                            {teamMembers.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        )}
 
                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-slate-600 mt-1">
                           <a
@@ -803,6 +845,30 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                             className="px-2.5 py-1 text-slate-400 hover:text-slate-700 text-xs rounded transition"
                           >
                             Revert to Scheduled
+                          </button>
+                        )}
+
+                        {!isCompleted && job.status !== 'cancelled' && onCancelJob && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelClick(job.id)}
+                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold flex items-center transition cursor-pointer"
+                            title="Cancel this appointment"
+                          >
+                            <Ban className="w-3.5 h-3.5 mr-1" />
+                            Cancel
+                          </button>
+                        )}
+
+                        {job.status === 'cancelled' && onRescheduleJob && (
+                          <button
+                            type="button"
+                            onClick={() => handleRescheduleClick(job)}
+                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center transition cursor-pointer"
+                            title="Reschedule this appointment"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                            Reschedule
                           </button>
                         )}
 

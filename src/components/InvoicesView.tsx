@@ -15,13 +15,16 @@ import {
   Check,
   TrendingUp,
   X,
+  Download,
 } from 'lucide-react';
+import { exportToCSV } from '../utils/csvExport';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
   clients: Client[];
   onMarkPaid: (invoiceId: string, method: Invoice['paymentMethod']) => void;
   onCreateInvoice: (invoice: Omit<Invoice, 'id'>) => void;
+  onAddInvoiceTip?: (invoiceId: string, tipAmount: number) => void;
 }
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
@@ -29,11 +32,31 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   clients,
   onMarkPaid,
   onCreateInvoice,
+  onAddInvoiceTip,
 }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInvoiceForPrint, setSelectedInvoiceForPrint] = useState<Invoice | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [tipDrafts, setTipDrafts] = useState<Record<string, string>>({});
+
+  const handleExportInvoicesCSV = () => {
+    exportToCSV(
+      invoices.map((inv) => ({
+        InvoiceNumber: inv.invoiceNumber,
+        Client: inv.clientName,
+        ServiceDate: inv.serviceDate,
+        DueDate: inv.dueDate,
+        Status: inv.status,
+        Subtotal: inv.subtotal,
+        Discount: inv.discountTotal,
+        Tip: inv.tipAmount || 0,
+        Total: inv.totalAmount,
+        PaymentMethod: inv.paymentMethod || '',
+      })),
+      `clean-convictions-invoices-${new Date().toISOString().split('T')[0]}.csv`
+    );
+  };
 
   // New Invoice Form
   const [formClientId, setFormClientId] = useState(clients[0]?.id || '');
@@ -171,13 +194,23 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            New Invoice
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={handleExportInvoicesCSV}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center cursor-pointer"
+              title="Export all invoices to CSV"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center shadow cursor-pointer"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              New Invoice
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -261,7 +294,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     </span>
                     {inv.paymentMethod && (
                       <span className="text-[10px] text-emerald-700 font-medium block">
-                        Paid via {inv.paymentMethod}
+                        Paid via {inv.paymentMethod}{inv.tipAmount ? ` (+$${inv.tipAmount} tip)` : ''}
                       </span>
                     )}
                   </div>
@@ -269,6 +302,22 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   <div className="flex items-center space-x-2">
                     {inv.status === 'unpaid' && (
                       <div className="flex items-center space-x-1">
+                        {onAddInvoiceTip && (
+                          <input
+                            type="number"
+                            min={0}
+                            step="1"
+                            placeholder="Tip $"
+                            value={tipDrafts[inv.id] ?? (inv.tipAmount ? String(inv.tipAmount) : '')}
+                            onChange={(e) => setTipDrafts((prev) => ({ ...prev, [inv.id]: e.target.value }))}
+                            onBlur={() => {
+                              const val = parseFloat(tipDrafts[inv.id] ?? '');
+                              if (!isNaN(val)) onAddInvoiceTip(inv.id, val);
+                            }}
+                            className="w-16 text-xs px-2 py-1.5 border border-slate-300 rounded-lg"
+                            title="Add a tip or extra charge to this invoice before marking paid"
+                          />
+                        )}
                         <button
                           onClick={() => onMarkPaid(inv.id, 'Zelle')}
                           className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"

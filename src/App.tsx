@@ -12,6 +12,7 @@ import {
   Expense,
   HelperShift,
   MarketingDraft,
+  ClientActivityEntry,
 } from './types';
 import {
   generateReferralCode,
@@ -61,6 +62,11 @@ export default function App({ userEmail }: AppProps) {
 
   // Initial input passed to estimator (e.g. when "Re-Quote" clicked on a client)
   const [estimatorInputData, setEstimatorInputData] = useState<Partial<EstimatorInput> | undefined>();
+
+  // Pre-fill passed to the Marketing Hub (e.g. "Request a Review" quick action)
+  const [marketingPrefill, setMarketingPrefill] = useState<
+    { mode: 'reply_email' | 'reply_post' | 'create_post'; context: string } | undefined
+  >();
 
   // Subscribe to live Firestore data once, for the lifetime of the app shell.
   useEffect(() => {
@@ -595,6 +601,84 @@ export default function App({ userEmail }: AppProps) {
     removeDoc('helperShifts', id);
   };
 
+  // Assign a job to a specific team member
+  const handleAssignJob = (jobId: string, assignedTo: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, { ...job, assignedTo: assignedTo || undefined });
+  };
+
+  // Cancel a job with an optional reason on file
+  const handleCancelJob = (jobId: string, reason?: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    putDoc('jobs', jobId, { ...job, status: 'cancelled', cancellationReason: reason || job.cancellationReason });
+  };
+
+  // Reschedule a cancelled/existing job to a new date/time as a fresh scheduled job
+  const handleRescheduleJob = (jobId: string, date: string, timeSlot: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const newJob: JobAppointment = {
+      ...job,
+      id: 'job-' + Date.now(),
+      date,
+      timeSlot,
+      status: 'scheduled',
+      actualMinutes: undefined,
+      timerStartedAt: undefined,
+      cancellationReason: undefined,
+      invoiceId: undefined,
+      checklist: generateChecklistForJob(job.program, job.selectedAddOns),
+    };
+    putDoc('jobs', newJob.id, newJob);
+  };
+
+  // Client tags (segmentation) and activity notes/timeline
+  const handleUpdateClientTags = (clientId: string, tags: string[]) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    putDoc('clients', clientId, { ...client, tags });
+  };
+
+  const handleAddClientActivity = (clientId: string, note: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client || !note.trim()) return;
+    const entry: ClientActivityEntry = {
+      id: 'act-' + Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      note: note.trim(),
+    };
+    putDoc('clients', clientId, { ...client, activityLog: [...(client.activityLog || []), entry] });
+  };
+
+  // Add a tip / extra charge to an existing invoice
+  const handleAddInvoiceTip = (invoiceId: string, tipAmount: number) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    if (!inv) return;
+    putDoc('invoices', invoiceId, {
+      ...inv,
+      tipAmount,
+      totalAmount: inv.subtotal - inv.discountTotal + tipAmount,
+    });
+  };
+
+  // Jump to the Marketing Hub pre-filled to draft a review request for a client
+  const handleRequestReview = (client: Client) => {
+    setMarketingPrefill({
+      mode: 'create_post',
+      context: `Write a short, friendly message asking ${client.name} to leave us a Google review after their recent cleaning. Mention we'd really appreciate it and include a quick thank-you.`,
+    });
+    setActiveTab('marketing');
+  };
+
+  // Toggle a supply/expense item's low-stock flag
+  const handleToggleLowStock = (expenseId: string) => {
+    const exp = expenses.find((e) => e.id === expenseId);
+    if (!exp) return;
+    putDoc('expenses', expenseId, { ...exp, isLowStock: !exp.isLowStock });
+  };
+
   // Marketing Hub
   const handleSaveMarketingDraft = (data: Omit<MarketingDraft, 'id' | 'createdAt'>) => {
     const newDraft: MarketingDraft = {
@@ -650,6 +734,7 @@ export default function App({ userEmail }: AppProps) {
             jobs={jobs}
             clients={clients}
             blockedTimes={blockedTimes}
+            settings={settings}
             onUpdateJobStatus={handleUpdateJobStatus}
             onOpenChecklist={handleOpenChecklist}
             onCreateInvoiceFromJob={handleCreateInvoiceFromJob}
@@ -658,6 +743,9 @@ export default function App({ userEmail }: AppProps) {
             onAddBlockedTime={handleAddBlockedTime}
             onDeleteBlockedTime={handleDeleteBlockedTime}
             onUpdateJobRouteOrder={handleUpdateJobRouteOrder}
+            onAssignJob={handleAssignJob}
+            onCancelJob={handleCancelJob}
+            onRescheduleJob={handleRescheduleJob}
           />
         )}
 
@@ -684,6 +772,9 @@ export default function App({ userEmail }: AppProps) {
             onDeleteJob={handleDeleteJob}
             onLoadIntoEstimator={handleLoadIntoEstimator}
             onScheduleForClient={handleScheduleForClient}
+            onUpdateClientTags={handleUpdateClientTags}
+            onAddClientActivity={handleAddClientActivity}
+            onRequestReview={handleRequestReview}
           />
         )}
 
@@ -693,6 +784,7 @@ export default function App({ userEmail }: AppProps) {
             clients={clients}
             onMarkPaid={handleMarkPaid}
             onCreateInvoice={handleCreateCustomInvoice}
+            onAddInvoiceTip={handleAddInvoiceTip}
           />
         )}
 
@@ -703,6 +795,7 @@ export default function App({ userEmail }: AppProps) {
             jobs={jobs}
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
+            onToggleLowStock={handleToggleLowStock}
           />
         )}
 
@@ -723,6 +816,8 @@ export default function App({ userEmail }: AppProps) {
             settings={settings}
             onSaveDraft={handleSaveMarketingDraft}
             onDeleteDraft={handleDeleteMarketingDraft}
+            prefill={marketingPrefill}
+            onPrefillConsumed={() => setMarketingPrefill(undefined)}
           />
         )}
 
