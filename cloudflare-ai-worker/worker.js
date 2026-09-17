@@ -14,8 +14,10 @@
  * ── Routes ──────────────────────────────────────────────────────────────
  *   POST /                → AI draft generation (unchanged)
  *   POST /email/send      → { to, subject, body, cc? } sends a real email
- *   GET  /email/inbox     → recent inbox messages (poll this to show a live inbox)
- *   GET  /email/message?id=<messageId> → full body of one message
+ *   GET  /email/folders   → every folder in the mailbox (Inbox, Drafts, Sent, Trash, ...)
+ *   GET  /email/messages?folderId=<id>&limit=20 → messages in that folder
+ *   GET  /email/message?id=<messageId>&folderId=<id> → full body of one message
+ *   DELETE /email/message?id=<messageId>&folderId=<id>[&permanent=true] → delete one message
  *
  * All routes require the same X-App-Secret header as before.
  *
@@ -30,7 +32,7 @@
  *      refresh token right away (the code itself is one-time-use and dies
  *      in minutes, so it can't be reused later; the refresh token is the
  *      long-lived credential that matters).
- *   4. Claude will give you back four values to paste into this Worker's
+ *   4. Claude will give you back five values to paste into this Worker's
  *      Settings → Variables and Secrets (in addition to the APP_SECRET and
  *      AI binding you already set up):
  *        ZOHO_CLIENT_ID
@@ -69,7 +71,7 @@ function json(data, status = 200) {
 // isolate stays warm; refetched automatically once expired or on cold start) ──
 let zohoTokenCache = { accessToken: null, expiresAt: 0 };
 let zohoAccountCache = { accountId: null };
-let zohoInboxFolderCache = { folderId: null };
+let zohoFoldersCache = { folders: null };
 
 async function getZohoAccessToken(env) {
   const now = Date.now();
@@ -129,13 +131,17 @@ async function getZohoAccountId(env) {
   return account.accountId;
 }
 
-async function getZohoInboxFolderId(env, accountId) {
-  if (zohoInboxFolderCache.folderId) return zohoInboxFolderCache.folderId;
+async function getZohoFolders(env, accountId) {
+  if (zohoFoldersCache.folders) return zohoFoldersCache.folders;
   const data = await zohoFetch(env, `/accounts/${accountId}/folders`);
-  const inbox = (data.data || []).find((f) => f.folderType === "Inbox") || (data.data || [])[0];
-  if (!inbox) throw new Error("Could not find an Inbox folder in this Zoho Mail account");
-  zohoInboxFolderCache.folderId = inbox.folderId;
-  return inbox.folderId;
+  const folders = (data.data || []).map((f) => ({
+    folderId: f.folderId,
+    folderName: f.folderName,
+    folderType: f.folderType,
+  }));
+  if (!folders.length) throw new Error("No folders found in this Zoho Mail account");
+  zohoFoldersCache.folders = folders;
+  return folders;
 }
 
 function requireSecret(request, env) {
@@ -189,15 +195,30 @@ export default {
       }
     }
 
-    // ── List recent inbox messages ───────────────────────────────────────
-    if (url.pathname === "/email/inbox" && request.method === "GET") {
+    // ── List every folder in the mailbox (Inbox, Drafts, Sent, Trash, ...) ─
+    if (url.pathname === "/email/folders" && request.method === "GET") {
       if (!env.ZOHO_REFRESH_TOKEN) {
         return json({ error: "Zoho email isn't configured yet on this Worker" }, 400);
       }
       try {
+        const accountId = await getZohoAccountId(env);
+        const folders = await getZohoFolders(env, accountId);
+        return json({ folders });
+      } catch (err) {
+        return json({ error: "Folder list failed: " + (err && err.message) }, 500);
+      }
+    }
+
+    // ── List messages in a given folder ──────────────────────────────────
+    if (url.pathname === "/email/messages" && request.method === "GET") {
+      if (!env.ZOHO_REFRESH_TOKEN) {
+        return json({ error: "Zoho email isn't configured yet on this Worker" }, 400);
+      }
+      const folderId = url.searchParams.get("folderId");
+      if (!folderId) return json({ error: "folderId is required" }, 400);
+      try {
         const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
         const accountId = await getZohoAccountId(env);
-        const folderId = await getZohoInboxFolderId(env, accountId);
         const data = await zohoFetch(
           env,
           `/accounts/${accountId}/messages/view?folderId=${folderId}&limit=${limit}&start=1&sortBy=date&sortorder=false`
@@ -205,6 +226,7 @@ export default {
         const messages = (data.data || []).map((m) => ({
           id: m.messageId,
           from: m.fromAddress,
+          to: m.toAddress,
           sender: m.sender,
           subject: m.subject,
           snippet: m.summary,
@@ -213,7 +235,7 @@ export default {
         }));
         return json({ messages });
       } catch (err) {
-        return json({ error: "Inbox fetch failed: " + (err && err.message) }, 500);
+        return json({ error: "Message list failed: " + (err && err.message) }, 500);
       }
     }
 
@@ -223,10 +245,10 @@ export default {
         return json({ error: "Zoho email isn't configured yet on this Worker" }, 400);
       }
       const id = url.searchParams.get("id");
-      if (!id) return json({ error: "id is required" }, 400);
+      const folderId = url.searchParams.get("folderId");
+      if (!id || !folderId) return json({ error: "id and folderId are required" }, 400);
       try {
         const accountId = await getZohoAccountId(env);
-        const folderId = await getZohoInboxFolderId(env, accountId);
         const data = await zohoFetch(
           env,
           `/accounts/${accountId}/folders/${folderId}/messages/${id}/content`
@@ -243,11 +265,11 @@ export default {
         return json({ error: "Zoho email isn't configured yet on this Worker" }, 400);
       }
       const id = url.searchParams.get("id");
-      if (!id) return json({ error: "id is required" }, 400);
+      const folderId = url.searchParams.get("folderId");
+      if (!id || !folderId) return json({ error: "id and folderId are required" }, 400);
       const permanent = url.searchParams.get("permanent") === "true";
       try {
         const accountId = await getZohoAccountId(env);
-        const folderId = await getZohoInboxFolderId(env, accountId);
         await zohoFetch(
           env,
           `/accounts/${accountId}/folders/${folderId}/messages/${id}?expunge=${permanent ? "true" : "false"}`,
