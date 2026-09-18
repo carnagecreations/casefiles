@@ -205,12 +205,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-lg font-bold tracking-tight text-white">Clean Convictions</h1>
-                  <span className="hidden sm:inline text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                    Solo Cleaner Hub
-                  </span>
                 </div>
                 <p className="hidden sm:block text-xs text-slate-400">
-                  Flat-rate estimator & solo operations • cleanconvictions.com
+                  Flat-rate estimator & business manager • cleanconvictions.com
                 </p>
               </div>
             </div>
