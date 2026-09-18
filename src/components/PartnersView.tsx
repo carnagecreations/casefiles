@@ -34,6 +34,9 @@ const TYPE_META: Record<PartnerType, { label: string }> = {
   rv_park: { label: 'RV / Mobile Home Park' },
   realtor: { label: 'Realtor' },
   hoa: { label: 'HOA' },
+  mover: { label: 'Moving Company' },
+  senior_move_manager: { label: 'Senior Move Manager / Downsizing' },
+  vacation_rental_manager: { label: 'Vacation Rental Manager' },
   other: { label: 'Other' },
 };
 
@@ -86,6 +89,21 @@ const REWARD_TIERS_BY_TYPE: Record<PartnerType, { count: number; reward: string 
     { count: 2, reward: 'A free move-out/listing-prep cleaning for your next listing' },
     { count: 5, reward: 'A free "closing gift" cleaning to hand any client at closing' },
     { count: 10, reward: 'Priority same-week scheduling on every listing, plus a shoutout as a Preferred Cleaning Partner on our site & social' },
+  ],
+  mover: [
+    { count: 2, reward: 'A free move-out/move-in cleaning for your own home or office' },
+    { count: 5, reward: '$75 service credit, plus we hand your card to every client who books through you' },
+    { count: 10, reward: 'A standing "movers + cleaners" bundle deal to offer your customers, and a shoutout as a Preferred Cleaning Partner' },
+  ],
+  senior_move_manager: [
+    { count: 2, reward: 'A free move-out/downsizing cleanout cleaning' },
+    { count: 5, reward: '$75 service credit toward your own office or a client cleaning' },
+    { count: 10, reward: 'Priority scheduling for your clients\' move dates, plus a shoutout as a Preferred Cleaning Partner' },
+  ],
+  vacation_rental_manager: [
+    { count: 3, reward: 'A free turnover cleaning on us, plus a locked-in partner rate on recurring turnovers' },
+    { count: 6, reward: '$75 credit toward your own unit or office cleaning' },
+    { count: 10, reward: 'Priority same-day turnover scheduling across all your listings, for as long as we\'re partnered' },
   ],
   other: [
     { count: 3, reward: 'A free standard cleaning as a thank-you' },
@@ -171,6 +189,76 @@ const REALTOR_OBJECTIONS: { objection: string; rebuttal: string }[] = [
   },
 ];
 
+// Movers and senior move managers/downsizing specialists both sit at the
+// exact moment a move-out or move-in cleaning becomes urgent, so they share
+// one pitch — swap "movers" for "clients" mentally when talking to the latter.
+const MOVER_PITCH_SCRIPT = {
+  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on move-out and move-in cleanings.`,
+  body: `We handle move-out cleans (getting a home ready to hand back or list) and move-in cleans (a fresh home before the boxes arrive). Every client of yours who books gets $25 off with your code — one less thing on their plate during an already stressful move. For you: every 2 referrals earns a free cleaning for your own home or office, 5 earns $75 credit, and at 10 we set up a standing "movers + cleaners" bundle deal you can offer your customers.`,
+  ask: `Would it be okay if I left some cards, or something you could hand to clients when they're scheduling their move?`,
+  close: `Great — I'll get that over to you today. Thanks for your time!`,
+};
+
+const MOVER_OBJECTIONS: { objection: string; rebuttal: string }[] = [
+  {
+    objection: '"We already recommend another cleaning company."',
+    rebuttal: `"Totally fine — just a second option costs you nothing, and the $25 discount and reward tiers only apply to us, so it doesn't compete with whoever else you use."`,
+  },
+  {
+    objection: '"My clients are stressed/busy — I don\'t want to push extra services."',
+    rebuttal: `"Completely understand — this isn't upselling, just a card in case a clean home is one less thing they want to worry about. No pressure on you or them either way."`,
+  },
+  {
+    objection: '"My clients are elderly / I\'m careful who I refer." (senior move managers)',
+    rebuttal: `"Makes sense, trust matters a lot there. Happy to do a walkthrough or a trial cleaning first so you can see how we work before recommending us to your clients."`,
+  },
+  {
+    objection: '"What\'s actually in it for us?"',
+    rebuttal: `"Every couple referrals earns you a free cleaning for your own place, and it builds from there — plus your customers get a real perk to hear about when they're already overwhelmed by the move."`,
+  },
+  {
+    objection: '"Just email/send it to me."',
+    rebuttal: `"Absolutely — what's the best email? I'll send it over today." (Get the email, then use Draft Outreach on this partner right after.)`,
+  },
+  {
+    objection: '"Let me think about it."',
+    rebuttal: `"Of course — I'll leave my card. Mind if I check back in a few weeks?" (Mark as "Contacted" and follow up.)`,
+  },
+];
+
+// Vacation rental managers are a different shape of relationship — usually
+// a direct recurring turnover-cleaning contract, not just a referral source
+// for one-off discounts, so the pitch leads with becoming their cleaner.
+const VRM_PITCH_SCRIPT = {
+  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about handling your short-term rental turnovers.`,
+  body: `We do turnover cleaning between guests — beds made, bathrooms spotless, a quick guest-ready check before your next arrival — and can offer a locked-in partner rate instead of one-off invoices. If you manage more than one property or know other owners, referring us in earns real perks: 3 referrals gets you a free turnover on us, 6 gets $75 credit, and at 10 you get priority same-day scheduling across every listing you manage.`,
+  ask: `Would you be open to a trial turnover on one property, no commitment, just to see the quality and turnaround?`,
+  close: `Great — which property should we start with, and what's the tightest same-day window you need covered?`,
+};
+
+const VRM_OBJECTIONS: { objection: string; rebuttal: string }[] = [
+  {
+    objection: '"We already have a cleaner for turnovers."',
+    rebuttal: `"Totally fine — I'd love a shot as a backup or overflow property, especially for tight same-day turnarounds. If it goes well, we can talk about more."`,
+  },
+  {
+    objection: '"Our turnaround windows are really tight (same-day, a few hours)."',
+    rebuttal: `"That's exactly what we're built for — give us one property to prove it on. If we're late or it's not guest-ready, that clean's on us."`,
+  },
+  {
+    objection: '"How do you handle keys/lockbox access?"',
+    rebuttal: `"However you already manage it for other vendors — lockbox code, smart lock, or a key we keep secured. Every property gets treated like it's the only one we clean."`,
+  },
+  {
+    objection: `"What if something's damaged or missing?"`,
+    rebuttal: `"We document every turnover with photos, so there's always a record if something comes up — happy to talk through whatever process gives you peace of mind."`,
+  },
+  {
+    objection: '"What does it cost?"',
+    rebuttal: `"Depends on property size and turnover frequency — the more properties or turnovers, the better the per-clean rate. Let's start with one property and go from there."`,
+  },
+];
+
 const EMPTY_FORM = {
   businessName: '',
   contactName: '',
@@ -192,7 +280,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
 }) => {
   const [filter, setFilter] = useState<PartnerStatus | 'all'>('all');
   const [scriptOpen, setScriptOpen] = useState(false);
-  const [scriptTab, setScriptTab] = useState<'property' | 'realtor'>('property');
+  const [scriptTab, setScriptTab] = useState<'property' | 'realtor' | 'mover' | 'vrm'>('property');
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -291,27 +379,35 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         </button>
         {scriptOpen && (
           <div className="px-4 pb-4 text-xs text-slate-700 space-y-4">
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setScriptTab('property')}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer ${
-                  scriptTab === 'property' ? 'bg-rose-600 text-white' : 'bg-white border border-rose-200 text-rose-700'
-                }`}
-              >
-                Property Managers / RV Parks
-              </button>
-              <button
-                onClick={() => setScriptTab('realtor')}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer ${
-                  scriptTab === 'realtor' ? 'bg-rose-600 text-white' : 'bg-white border border-rose-200 text-rose-700'
-                }`}
-              >
-                Realtors
-              </button>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['property', 'Property Managers / RV Parks'],
+                ['realtor', 'Realtors'],
+                ['mover', 'Movers & Senior Move Managers'],
+                ['vrm', 'Vacation Rental Managers'],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setScriptTab(key)}
+                  className={`text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer ${
+                    scriptTab === key ? 'bg-rose-600 text-white' : 'bg-white border border-rose-200 text-rose-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             {(() => {
-              const script = scriptTab === 'realtor' ? REALTOR_PITCH_SCRIPT : PITCH_SCRIPT;
-              const objections = scriptTab === 'realtor' ? REALTOR_OBJECTIONS : OBJECTIONS;
+              const script =
+                scriptTab === 'realtor' ? REALTOR_PITCH_SCRIPT :
+                scriptTab === 'mover' ? MOVER_PITCH_SCRIPT :
+                scriptTab === 'vrm' ? VRM_PITCH_SCRIPT :
+                PITCH_SCRIPT;
+              const objections =
+                scriptTab === 'realtor' ? REALTOR_OBJECTIONS :
+                scriptTab === 'mover' ? MOVER_OBJECTIONS :
+                scriptTab === 'vrm' ? VRM_OBJECTIONS :
+                OBJECTIONS;
               return (
                 <>
                   <div>

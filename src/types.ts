@@ -276,7 +276,15 @@ export interface QuickNote {
 
 // B2B relationship tracker — property managers, RV/mobile-home parks, HOAs,
 // realtors, and similar referral partners, distinct from individual clients.
-export type PartnerType = 'property_manager' | 'rv_park' | 'realtor' | 'hoa' | 'other';
+export type PartnerType =
+  | 'property_manager'
+  | 'rv_park'
+  | 'realtor'
+  | 'hoa'
+  | 'mover'
+  | 'senior_move_manager'
+  | 'vacation_rental_manager'
+  | 'other';
 export type PartnerStatus = 'not_contacted' | 'contacted' | 'interested' | 'partnered' | 'declined';
 
 export interface Partner {

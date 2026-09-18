@@ -705,28 +705,43 @@ export default function App({ userEmail }: AppProps) {
     const code = partner.referralCode || slugifyPartnerCode(partner.businessName);
     const bookingLink = `https://www.cleanconvictions.com/book?ref=${code}`;
 
-    if (partner.type === 'realtor') {
-      // Realtors refer per-transaction (a listing, a closing) rather than
-      // per-resident — the pitch and the payoff for them are both different.
-      const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. I wanted to reach out about partnering with ${partner.businessName} on listing-prep and closing cleanings.\n\nHere's the offer: any client of yours who books through this link gets $25 off — ${bookingLink} — or they can just mention code ${code}. That covers move-out cleans before a listing goes live (homes show better and sell faster clean) and move-in cleans for your buyers at closing.\n\nFor you: every 2 referrals earns a free listing-prep cleaning you can use on your own listings, every 5 earns a free "closing gift" cleaning to hand a client at closing (a nice touch that keeps your name on their mind), and at 10 you get priority same-week scheduling on every listing plus a shoutout as a Preferred Cleaning Partner on our site and social.\n\nCan I drop off a few cards or QR flyers, or email you something to include in your closing packets? Happy to chat whenever works for you. Thank you!`;
-      setMarketingPrefill({
-        mode: 'create_post',
-        context,
-        recipientEmail: partner.email || undefined,
-        recipientPhone: partner.phone || undefined,
-        subject: `Cleaning Partnership for ${partner.businessName} Listings & Closings`,
-      });
-      setActiveTab('marketing');
-      return;
+    let context: string;
+    let subject: string;
+
+    switch (partner.type) {
+      case 'realtor':
+        // Realtors refer per-transaction (a listing, a closing) rather than
+        // per-resident — the pitch and the payoff for them are both different.
+        context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. I wanted to reach out about partnering with ${partner.businessName} on listing-prep and closing cleanings.\n\nHere's the offer: any client of yours who books through this link gets $25 off — ${bookingLink} — or they can just mention code ${code}. That covers move-out cleans before a listing goes live (homes show better and sell faster clean) and move-in cleans for your buyers at closing.\n\nFor you: every 2 referrals earns a free listing-prep cleaning you can use on your own listings, every 5 earns a free "closing gift" cleaning to hand a client at closing (a nice touch that keeps your name on their mind), and at 10 you get priority same-week scheduling on every listing plus a shoutout as a Preferred Cleaning Partner on our site and social.\n\nCan I drop off a few cards or QR flyers, or email you something to include in your closing packets? Happy to chat whenever works for you. Thank you!`;
+        subject = `Cleaning Partnership for ${partner.businessName} Listings & Closings`;
+        break;
+
+      case 'mover':
+      case 'senior_move_manager':
+        // Movers and senior move managers both sit at the exact moment a
+        // move-out/move-in clean becomes urgent — same pitch shape either way.
+        context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. I wanted to reach out about partnering with ${partner.businessName} on move-out and move-in cleanings.\n\nHere's the offer: any client of yours who books through this link gets $25 off — ${bookingLink} — or they can just mention code ${code}. It's one less thing on their plate during an already stressful move.\n\nFor you: every 2 referrals earns a free cleaning for your own home or office, 5 earns $75 credit, and at 10 we set up a standing "movers + cleaners" bundle deal you can offer your customers, plus a shoutout as a Preferred Cleaning Partner.\n\nCould I drop off some cards, or something you could hand out when clients are scheduling their move? Happy to chat whenever works for you. Thank you!`;
+        subject = `Cleaning Partnership for ${partner.businessName} Moves`;
+        break;
+
+      case 'vacation_rental_manager':
+        // A different relationship entirely — usually a direct recurring
+        // turnover-cleaning contract, not just a discount-code referral.
+        context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. I wanted to talk about handling turnover cleaning for ${partner.businessName}'s short-term rentals.\n\nWe do same-day turnover cleaning between guests, and can offer a locked-in partner rate on your ongoing turnovers instead of one-off invoices. If you manage other properties or know other owners, referring us in earns real perks: 3 referrals gets you a free turnover on us, 6 gets $75 credit, and at 10 you get priority same-day scheduling across every listing you manage.\n\nWould you be open to a trial turnover on one property, no commitment, just to see the quality and turnaround? Happy to chat whenever works for you. Thank you!`;
+        subject = `Turnover Cleaning Partnership for ${partner.businessName}`;
+        break;
+
+      default:
+        context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who books through this link gets $25 off their first cleaning automatically — ${bookingLink} — or they can just mention code ${code} when they call or text us. They get a fully clean, move-in-ready home the day they arrive for the season.\n\nFor you: once a few residents book, we'll clean your office or a common area free as a thank-you, and it keeps growing the more residents you send our way. I can drop off a few flyers or QR code cards, or email you something to include in a welcome packet — whatever's easiest.\n\nWould you be open to that? Happy to chat whenever works for you. Thank you!`;
+        subject = `Winter/Snowbird Cleaning Special for ${partner.businessName} Residents`;
     }
 
-    const context = `Hi ${contactFirstName}, I'm Riot with Clean Convictions, a local Yuma cleaning company. With snowbird season starting back up, I wanted to reach out about ${partner.businessName} — we'd love to be the cleaning service you recommend to residents heading into their winter homes.\n\nHere's the offer: any resident at ${partner.businessName} who books through this link gets $25 off their first cleaning automatically — ${bookingLink} — or they can just mention code ${code} when they call or text us. They get a fully clean, move-in-ready home the day they arrive for the season.\n\nFor you: once a few residents book, we'll clean your office or a common area free as a thank-you, and it keeps growing the more residents you send our way. I can drop off a few flyers or QR code cards, or email you something to include in a welcome packet — whatever's easiest.\n\nWould you be open to that? Happy to chat whenever works for you. Thank you!`;
     setMarketingPrefill({
       mode: 'create_post',
       context,
       recipientEmail: partner.email || undefined,
       recipientPhone: partner.phone || undefined,
-      subject: `Winter/Snowbird Cleaning Special for ${partner.businessName} Residents`,
+      subject,
     });
     setActiveTab('marketing');
   };
