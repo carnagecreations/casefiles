@@ -183,7 +183,7 @@ export const ReferralsView: React.FC<ReferralsViewProps> = ({
   };
 
   const getSmsText = (clientName: string, code: string) => {
-    return `Hey! It's ${clientName}. I use Clean Convictions for our home cleaning in Yuma and they do an exceptional job. Use my referral code ${code} to get $25 OFF your first clean! You can book online at cleanconvictions.com or call/text (928) 555-0100.`;
+    return `Hey! It's ${clientName}. I use Clean Convictions for our home cleaning in Yuma and they do an exceptional job. Use my link to get $25 OFF your first clean: https://cleanconvictions.com/book?rc=${code} — or call/text (928) 555-0100.`;
   };
 
   return (
@@ -639,7 +639,7 @@ export const ReferralsView: React.FC<ReferralsViewProps> = ({
                 Send this to a happy client so they can easily forward it to their neighbors or friends.
               </p>
               <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs text-slate-700 font-mono leading-relaxed select-all">
-                "Hey! I've been using Clean Convictions for our home cleaning here in Yuma and they do an awesome job. Use my referral code [CODE] for $25 OFF your first clean! You can check rates or book online at cleanconvictions.com or text (928) 555-0100."
+                "Hey! I've been using Clean Convictions for our home cleaning here in Yuma and they do an awesome job. Use my link for $25 OFF your first clean: cleanconvictions.com/book?rc=[CODE] — or text (928) 555-0100."
               </div>
             </div>
 
@@ -649,7 +649,7 @@ export const ReferralsView: React.FC<ReferralsViewProps> = ({
                 type="button"
                 onClick={() =>
                   handleCopy(
-                    "Hey! I've been using Clean Convictions for our home cleaning here in Yuma and they do an awesome job. Use my referral code [CODE] for $25 OFF your first clean! You can check rates or book online at cleanconvictions.com or text (928) 555-0100.",
+                    "Hey! I've been using Clean Convictions for our home cleaning here in Yuma and they do an awesome job. Use my link for $25 OFF your first clean: cleanconvictions.com/book?rc=[CODE] — or text (928) 555-0100.",
                     't1'
                   )
                 }
