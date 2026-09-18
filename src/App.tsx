@@ -28,6 +28,7 @@ import {
 } from './utils/pricingEngine';
 import { nextRecurrenceDate } from './utils/recurring';
 import { generateWelcomePacketPdf } from './utils/welcomePacket';
+import { sendEmail, isZohoEmailConfigured } from './utils/zohoEmailApi';
 import { syncCollection, syncDoc, putDoc, removeDoc, putSettingsDoc } from './firebase';
 import { signOutUser } from './components/AuthGate';
 import { Navbar, AppTab } from './components/Navbar';
@@ -278,10 +279,26 @@ export default function App({ userEmail }: AppProps) {
     if (pendingReferral.referrerClientId && pendingReferral.referrerClientId !== 'organic') {
       const referrer = clients.find((c) => c.id === pendingReferral.referrerClientId);
       if (referrer) {
+        const newBalance = (referrer.referralCreditBalance || 0) + (pendingReferral.rewardAmount || 25);
         putDoc('clients', referrer.id, {
           ...referrer,
-          referralCreditBalance: (referrer.referralCreditBalance || 0) + (pendingReferral.rewardAmount || 25),
+          referralCreditBalance: newBalance,
         });
+
+        // Let the referrer know their credit landed — best-effort, silent if
+        // they have no email on file (common for leads that came in purely
+        // through the website quote form, which doesn't collect one) or if
+        // Marketing AI / Zoho isn't configured in Settings.
+        if (referrer.email && isZohoEmailConfigured(settings)) {
+          sendEmail(
+            settings,
+            referrer.email,
+            "Your $25 Clean Convictions referral credit is ready!",
+            `Hi ${referrer.name},\n\nGreat news — ${pendingReferral.refereeName} just completed their first clean, so your $25 referral credit is now on your account (current balance: $${newBalance}).\n\nIt'll be applied automatically to your next cleaning. Thanks for spreading the word about Clean Convictions!\n\n— Clean Convictions`
+          ).catch(() => {
+            /* best-effort — the credit itself is already saved either way */
+          });
+        }
       }
     }
   };
