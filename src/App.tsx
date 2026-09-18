@@ -141,8 +141,25 @@ export default function App({ userEmail }: AppProps) {
     const existing = clients.find(
       (c) => c.name.toLowerCase() === clientInfo.name.toLowerCase()
     );
+    // If a referral code was entered, match it to an existing referrer up
+    // front so the new/existing client record can carry the "referred by"
+    // fields (shows up in Clients & Leads, and lets the automatic credit
+    // check at job-completion time find its way back to the referrer).
+    const cleanCode = input.referralCode ? input.referralCode.trim().toUpperCase() : '';
+    const referrer = cleanCode
+      ? clients.find((c) => c.referralCode && c.referralCode.toUpperCase() === cleanCode)
+      : undefined;
+
     if (existing) {
       clientId = existing.id;
+      if (cleanCode && !existing.referredByCode) {
+        putDoc('clients', existing.id, {
+          ...existing,
+          referredByCode: cleanCode,
+          referredByClientId: referrer?.id,
+          referredByName: referrer?.name,
+        });
+      }
     } else {
       const newClient: Client = {
         id: clientId,
@@ -164,17 +181,17 @@ export default function App({ userEmail }: AppProps) {
         referralCode: generateReferralCode(clientInfo.name, clientInfo.phone),
         referralCreditBalance: 0,
         createdAt: new Date().toISOString().split('T')[0],
+        ...(cleanCode ? { referredByCode: cleanCode, referredByClientId: referrer?.id, referredByName: referrer?.name } : {}),
       };
       putDoc('clients', newClient.id, newClient);
     }
 
-    // If a referral code was entered, match to existing referrer and record referral
-    if (input.referralCode) {
-      const cleanCode = input.referralCode.trim().toUpperCase();
-      const referrer = clients.find(
-        (c) => c.referralCode && c.referralCode.toUpperCase() === cleanCode
-      );
-
+    // Record the referral as pending — the $25 credit to the referrer is
+    // awarded automatically once this client's FIRST clean is marked
+    // complete (see awardReferralCreditForFirstClean), not at booking time.
+    // The referred client's own $25-off discount is still applied to this
+    // job's price immediately, below.
+    if (cleanCode) {
       const newReferral: Referral = {
         id: 'ref-' + Date.now(),
         referrerClientId: referrer ? referrer.id : 'organic',
@@ -182,23 +199,15 @@ export default function App({ userEmail }: AppProps) {
         referrerCode: cleanCode,
         refereeName: clientInfo.name,
         refereePhone: clientInfo.phone,
-        status: 'qualified',
+        refereeClientId: clientId,
+        status: 'pending',
         dateReferred: new Date().toISOString().split('T')[0],
-        dateQualified: clientInfo.date,
         refereeDiscount: referralDiscount,
         rewardAmount: settings.referralRewardAmount || 25,
-        notes: `Applied on estimate for ${clientInfo.date} service.`,
+        notes: `Booked from Clean Convictions Estimator for ${clientInfo.date} service. Credit awards automatically once their first clean is complete.`,
       };
 
       putDoc('referrals', newReferral.id, newReferral);
-
-      // If known referrer, award them their $25 credit immediately
-      if (referrer) {
-        putDoc('clients', referrer.id, {
-          ...referrer,
-          referralCreditBalance: (referrer.referralCreditBalance || 0) + (settings.referralRewardAmount || 25),
-        });
-      }
     }
 
     const newJob: JobAppointment = {
@@ -242,6 +251,41 @@ export default function App({ userEmail }: AppProps) {
     setActiveTab('clients');
   };
 
+  // If this client was referred by someone and this is their FIRST
+  // completed job, award the referrer their credit automatically — this is
+  // what makes the referral pipeline (quote requested -> booked -> credit)
+  // work end to end without anyone having to remember to click "Mark 1st
+  // Clean Completed" by hand. Referrals without a known refereeClientId
+  // (e.g. older manually-logged ones) still fall back to that button.
+  const awardReferralCreditForFirstClean = (clientId: string, completingJobId: string) => {
+    const otherCompletedJobs = jobs.filter(
+      (j) => j.clientId === clientId && j.status === 'completed' && j.id !== completingJobId
+    );
+    if (otherCompletedJobs.length > 0) return; // not their first clean
+
+    const pendingReferral = referrals.find(
+      (r) => r.status === 'pending' && r.refereeClientId === clientId
+    );
+    if (!pendingReferral) return;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    putDoc('referrals', pendingReferral.id, {
+      ...pendingReferral,
+      status: 'qualified',
+      dateQualified: todayStr,
+    });
+
+    if (pendingReferral.referrerClientId && pendingReferral.referrerClientId !== 'organic') {
+      const referrer = clients.find((c) => c.id === pendingReferral.referrerClientId);
+      if (referrer) {
+        putDoc('clients', referrer.id, {
+          ...referrer,
+          referralCreditBalance: (referrer.referralCreditBalance || 0) + (pendingReferral.rewardAmount || 25),
+        });
+      }
+    }
+  };
+
   // Update job status (e.g. start, finish)
   const handleUpdateJobStatus = (
     jobId: string,
@@ -255,6 +299,9 @@ export default function App({ userEmail }: AppProps) {
       status,
       actualMinutes: minutes !== undefined ? minutes : job.actualMinutes,
     });
+    if (status === 'completed' && job.status !== 'completed') {
+      awardReferralCreditForFirstClean(job.clientId, jobId);
+    }
   };
 
   // Open checklist for specific job
@@ -333,6 +380,9 @@ export default function App({ userEmail }: AppProps) {
     }
 
     putDoc('jobs', jobId, { ...job, status: 'completed', invoiceId: invId });
+    if (job.status !== 'completed') {
+      awardReferralCreditForFirstClean(job.clientId, jobId);
+    }
 
     // Auto-schedule the client's next visit if they're on a recurring
     // frequency, auto-recurring hasn't been turned off for them, and they
