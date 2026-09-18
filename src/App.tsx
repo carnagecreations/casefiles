@@ -15,6 +15,8 @@ import {
   ClientActivityEntry,
   QuickNote,
   Partner,
+  Helper,
+  SupplyItem,
 } from './types';
 import {
   generateReferralCode,
@@ -25,6 +27,7 @@ import {
   generateChecklistForJob,
 } from './utils/pricingEngine';
 import { nextRecurrenceDate } from './utils/recurring';
+import { generateWelcomePacketPdf } from './utils/welcomePacket';
 import { syncCollection, syncDoc, putDoc, removeDoc, putSettingsDoc } from './firebase';
 import { signOutUser } from './components/AuthGate';
 import { Navbar, AppTab } from './components/Navbar';
@@ -42,6 +45,7 @@ import { SettingsView } from './components/SettingsView';
 import { ReferralsView } from './components/ReferralsView';
 import { QuickCaptureButton } from './components/QuickCaptureButton';
 import { PartnersView } from './components/PartnersView';
+import { SupplyInventoryView } from './components/SupplyInventoryView';
 
 interface AppProps {
   userEmail: string;
@@ -63,6 +67,8 @@ export default function App({ userEmail }: AppProps) {
   const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [marketingDrafts, setMarketingDrafts] = useState<MarketingDraft[]>([]);
+  const [helpers, setHelpers] = useState<Helper[]>([]);
+  const [supplies, setSupplies] = useState<SupplyItem[]>([]);
 
   // Active job selected for checklist walkthrough
   const [selectedJobIdForChecklist, setSelectedJobIdForChecklist] = useState<string>('');
@@ -96,6 +102,8 @@ export default function App({ userEmail }: AppProps) {
       syncCollection<QuickNote>('quickNotes', setQuickNotes),
       syncCollection<Partner>('partners', setPartners),
       syncCollection<MarketingDraft>('marketingDrafts', setMarketingDrafts),
+      syncCollection<Helper>('helpers', setHelpers),
+      syncCollection<SupplyItem>('supplies', setSupplies),
       syncDoc<PricingSettings>('settings/pricing', DEFAULT_PRICING_SETTINGS, (loaded) => {
         setSettings(loaded);
         // One-time auto-fill: if this Firestore doc predates the Zoho business
@@ -118,7 +126,7 @@ export default function App({ userEmail }: AppProps) {
   // Book job from estimator
   const handleBookJobFromEstimator = (
     input: EstimatorInput,
-    clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string }
+    clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string; helpersNeeded?: number }
   ) => {
     const referralDiscount = input.referralCode ? (settings.referralDiscountAmount || 25) : 0;
     const inputWithReferral: EstimatorInput = {
@@ -213,6 +221,7 @@ export default function App({ userEmail }: AppProps) {
       notes: `Booked from Clean Convictions Estimator. Rate: $${quote.finalPrice}${
         input.referralCode ? ` (Referral Code ${input.referralCode} applied: -$${referralDiscount})` : ''
       }`,
+      helpersNeeded: clientInfo.helpersNeeded,
     };
 
     putDoc('jobs', newJob.id, newJob);
@@ -223,11 +232,13 @@ export default function App({ userEmail }: AppProps) {
   const handleSaveClientFromEstimator = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
     const newClient: Client = {
       ...clientData,
+      referralCode: clientData.referralCode || generateReferralCode(clientData.name, clientData.phone),
       id: 'c-' + Date.now(),
       createdAt: new Date().toISOString().split('T')[0],
     };
     putDoc('clients', newClient.id, newClient);
     bumpPartnerReferralCount(newClient.partnerId);
+    generateWelcomePacketPdf(newClient, settings);
     setActiveTab('clients');
   };
 
@@ -430,11 +441,13 @@ export default function App({ userEmail }: AppProps) {
   const handleAddClient = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
     const newClient: Client = {
       ...clientData,
+      referralCode: clientData.referralCode || generateReferralCode(clientData.name, clientData.phone),
       id: 'c-' + Date.now(),
       createdAt: new Date().toISOString().split('T')[0],
     };
     putDoc('clients', newClient.id, newClient);
     bumpPartnerReferralCount(newClient.partnerId);
+    generateWelcomePacketPdf(newClient, settings);
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
@@ -443,6 +456,56 @@ export default function App({ userEmail }: AppProps) {
 
   const handleDeleteClient = (clientId: string) => {
     removeDoc('clients', clientId);
+  };
+
+  // Supply Inventory Actions
+  const handleAddSupply = (data: Omit<SupplyItem, 'id' | 'createdAt'>) => {
+    const newSupply: SupplyItem = {
+      ...data,
+      id: 'sup-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('supplies', newSupply.id, newSupply);
+  };
+
+  const handleUpdateSupply = (item: SupplyItem) => {
+    putDoc('supplies', item.id, item);
+  };
+
+  const handleDeleteSupply = (id: string) => {
+    removeDoc('supplies', id);
+  };
+
+  // Employee/Helper Roster Actions — adding or reactivating a helper also
+  // keeps settings.teamMembers in sync so they show up in job-assignment pickers.
+  const handleAddHelper = (data: Omit<Helper, 'id' | 'createdAt'>) => {
+    const newHelper: Helper = {
+      ...data,
+      id: 'helper-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    putDoc('helpers', newHelper.id, newHelper);
+    if (newHelper.status === 'active' && !(settings.teamMembers || []).includes(newHelper.name)) {
+      putSettingsDoc({ ...settings, teamMembers: [...(settings.teamMembers || []), newHelper.name] });
+    }
+  };
+
+  const handleUpdateHelper = (updatedHelper: Helper) => {
+    const previous = helpers.find((h) => h.id === updatedHelper.id);
+    putDoc('helpers', updatedHelper.id, updatedHelper);
+    const teamMembers = settings.teamMembers || [];
+    if (updatedHelper.status === 'active' && !teamMembers.includes(updatedHelper.name)) {
+      putSettingsDoc({ ...settings, teamMembers: [...teamMembers, updatedHelper.name] });
+    } else if (previous && previous.name !== updatedHelper.name && teamMembers.includes(previous.name)) {
+      putSettingsDoc({
+        ...settings,
+        teamMembers: teamMembers.map((n) => (n === previous.name ? updatedHelper.name : n)),
+      });
+    }
+  };
+
+  const handleDeleteHelper = (id: string) => {
+    removeDoc('helpers', id);
   };
 
   const handleDeleteJob = (jobId: string) => {
@@ -993,6 +1056,7 @@ export default function App({ userEmail }: AppProps) {
         activeJobId={inProgressJob?.id}
         pendingReferralsCount={referrals.filter((r) => r.status === 'pending').length}
         unreadEmailCount={unreadEmailCount}
+        lowStockCount={supplies.filter((s) => s.quantityOnHand <= s.reorderThreshold).length}
       />
 
       {/* Main Content Area */}
@@ -1111,6 +1175,19 @@ export default function App({ userEmail }: AppProps) {
             onAddShift={handleAddShift}
             onMarkShiftPaid={handleMarkShiftPaid}
             onDeleteShift={handleDeleteShift}
+            helpers={helpers}
+            onAddHelper={handleAddHelper}
+            onUpdateHelper={handleUpdateHelper}
+            onDeleteHelper={handleDeleteHelper}
+          />
+        )}
+
+        {activeTab === 'supplies' && (
+          <SupplyInventoryView
+            supplies={supplies}
+            onAddSupply={handleAddSupply}
+            onUpdateSupply={handleUpdateSupply}
+            onDeleteSupply={handleDeleteSupply}
           />
         )}
 

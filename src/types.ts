@@ -133,6 +133,7 @@ export interface JobAppointment {
   timerStartedAt?: string; // ISO timestamp while the on-site timer is running
   cancellationReason?: string;
   qualityRating?: number; // 1-5 self/client-reported quality rating on completion
+  helpersNeeded?: number; // how many people (including Riot) this job needs on-site
 }
 
 export interface BlockedTime {
@@ -263,6 +264,40 @@ export interface HelperShift {
   notes?: string;
   paid: boolean;
   paidDate?: string;
+}
+
+// The employee/helper roster — who's on the team, distinct from HelperShift
+// (which is a single logged shift). Adding someone here also keeps
+// PricingSettings.teamMembers in sync so they show up in job-assignment pickers.
+export interface Helper {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role?: string; // e.g. "Lead Cleaner", "Helper", "Office Manager"
+  hourlyRate?: number; // default rate, pre-fills Team Hours & Pay logging
+  hireDate?: string; // YYYY-MM-DD
+  status: 'active' | 'inactive';
+  notes?: string;
+  createdAt: string; // YYYY-MM-DD
+}
+
+export type SupplyUnit = 'unit' | 'bottle' | 'roll' | 'box' | 'gallon' | 'pack' | 'case';
+
+// Supply inventory — distinct from Expense (which logs a purchase). This
+// tracks what's actually on hand right now so restocking is a look, not a guess.
+export interface SupplyItem {
+  id: string;
+  name: string;
+  category: 'cleaning_solution' | 'paper_products' | 'equipment' | 'safety' | 'other';
+  quantityOnHand: number;
+  unit: SupplyUnit;
+  reorderThreshold: number; // low-stock alert fires at or below this quantity
+  preferredVendor?: string;
+  costPerUnit?: number;
+  notes?: string;
+  lastRestockedDate?: string; // YYYY-MM-DD
+  createdAt: string; // YYYY-MM-DD
 }
 
 // A one-tap "brain dump" note — capture a stray thought instantly from

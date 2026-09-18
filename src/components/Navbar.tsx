@@ -18,6 +18,7 @@ import {
   Search,
   Inbox as InboxIcon,
   Handshake,
+  Package,
 } from 'lucide-react';
 import { JobAppointment, Invoice, Client } from '../types';
 
@@ -30,6 +31,7 @@ export type AppTab =
   | 'invoices'
   | 'expenses'
   | 'team'
+  | 'supplies'
   | 'marketing'
   | 'inbox'
   | 'partners'
@@ -45,6 +47,7 @@ interface NavbarProps {
   activeJobId?: string;
   pendingReferralsCount?: number;
   unreadEmailCount?: number;
+  lowStockCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -55,6 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   clients = [],
   activeJobId,
   unreadEmailCount = 0,
+  lowStockCount = 0,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -95,6 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     invoices: { active: 'bg-emerald-500 text-slate-950', icon: 'text-emerald-400' },
     expenses: { active: 'bg-orange-500 text-slate-950', icon: 'text-orange-400' },
     team: { active: 'bg-sky-500 text-slate-950', icon: 'text-sky-400' },
+    supplies: { active: 'bg-yellow-500 text-slate-950', icon: 'text-yellow-400' },
     marketing: { active: 'bg-fuchsia-500 text-slate-950', icon: 'text-fuchsia-400' },
     inbox: { active: 'bg-cyan-500 text-slate-950', icon: 'text-cyan-400' },
     partners: { active: 'bg-rose-500 text-slate-950', icon: 'text-rose-400' },
@@ -135,6 +140,21 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'invoices', label: 'Invoices & Revenue', icon: <Receipt className="w-4 h-4" /> },
     { id: 'expenses', label: 'Expenses', icon: <Wallet className="w-4 h-4" /> },
     { id: 'team', label: 'Team', icon: <UserCog className="w-4 h-4" /> },
+    {
+      id: 'supplies',
+      label: 'Supplies',
+      icon: <Package className="w-4 h-4" />,
+      badge:
+        lowStockCount > 0 ? (
+          <span
+            className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
+              activeTab === 'supplies' ? 'bg-slate-900 text-rose-400' : 'bg-rose-500 text-slate-950'
+            }`}
+          >
+            {lowStockCount}
+          </span>
+        ) : undefined,
+    },
     { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" /> },
     {
       id: 'inbox',

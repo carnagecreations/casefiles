@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { JobAppointment, Client, BlockedTime, CleaningProgram, PricingSettings } from '../types';
 import { optimizeDailyRoute, RouteOptimizationResult } from '../utils/routeOptimizer';
 import { buildSmsLink } from '../utils/contactLinks';
+import { TIME_SLOT_PRESETS, CUSTOM_TIME_VALUE } from '../utils/timeSlots';
 import {
   Calendar,
   Calendar as CalendarIcon,
@@ -127,8 +128,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [jobClientPhone, setJobClientPhone] = useState<string>('');
   const [jobClientAddress, setJobClientAddress] = useState<string>('');
   const [jobDate, setJobDate] = useState<string>(selectedDate);
-  const [jobTimeSlot, setJobTimeSlot] = useState<string>('8:00 AM - 11:30 AM (Morning)');
+  const [jobTimeSlot, setJobTimeSlot] = useState<string>(TIME_SLOT_PRESETS[1].label);
   const [jobCustomTime, setJobCustomTime] = useState<string>('');
+  const [jobHelpersNeeded, setJobHelpersNeeded] = useState<number>(1);
   const [jobProgram, setJobProgram] = useState<CleaningProgram>('regular');
   const [jobPrice, setJobPrice] = useState<number>(125);
   const [jobNotes, setJobNotes] = useState<string>('');
@@ -255,8 +257,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleSaveJob = (e: React.FormEvent) => {
     e.preventDefault();
     const client = clients.find((c) => c.id === jobClientId);
-    const effectiveTime = jobTimeSlot === 'Custom Time'
-      ? (jobCustomTime.trim() || 'Custom Time')
+    const effectiveTime = jobTimeSlot === CUSTOM_TIME_VALUE
+      ? (jobCustomTime.trim() || CUSTOM_TIME_VALUE)
       : jobTimeSlot;
 
     onAddJob({
@@ -275,6 +277,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       price: jobPrice,
       status: 'scheduled',
       notes: jobNotes || `Scheduled ${jobProgram} clean for ${jobClientName}`,
+      helpersNeeded: jobHelpersNeeded,
     });
 
     setIsAddJobModalOpen(false);
@@ -728,6 +731,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           >
                             {job.program.toUpperCase()} CLEAN
                           </span>
+
+                          {job.helpersNeeded && job.helpersNeeded > 1 && (
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                              {job.helpersNeeded} people needed
+                            </span>
+                          )}
 
                           {isCompleted && (
                             <span className="text-[11px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full flex items-center">
@@ -1530,12 +1539,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     onChange={(e) => setJobTimeSlot(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
                   >
-                    <option value="8:00 AM - 11:30 AM (Morning)">8:00 AM - 11:30 AM (Morning)</option>
-                    <option value="12:00 PM - 3:30 PM (Midday)">12:00 PM - 3:30 PM (Midday)</option>
-                    <option value="4:00 PM - 7:00 PM (Afternoon)">4:00 PM - 7:00 PM (Afternoon)</option>
-                    <option value="Custom Time">Custom Time...</option>
+                    {TIME_SLOT_PRESETS.map((p) => (
+                      <option key={p.id} value={p.label}>{p.label}</option>
+                    ))}
+                    <option value={CUSTOM_TIME_VALUE}>Custom Time...</option>
                   </select>
-                  {jobTimeSlot === 'Custom Time' && (
+                  {jobTimeSlot === CUSTOM_TIME_VALUE && (
                     <input
                       type="text"
                       placeholder="e.g. 9:00 AM - 12:30 PM"
@@ -1545,6 +1554,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     />
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Helpers Needed On-Site (including you):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={jobHelpersNeeded}
+                  onChange={(e) => setJobHelpersNeeded(parseInt(e.target.value, 10) || 1)}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                />
               </div>
 
               <div>

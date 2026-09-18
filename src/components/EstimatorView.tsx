@@ -10,6 +10,7 @@ import {
   Partner,
 } from '../types';
 import { calculateEstimate, generateClientTextQuote } from '../utils/pricingEngine';
+import { TIME_SLOT_PRESETS, CUSTOM_TIME_VALUE } from '../utils/timeSlots';
 import {
   Sparkles,
   ShieldCheck,
@@ -34,7 +35,7 @@ interface EstimatorViewProps {
   settings: PricingSettings;
   clients: Client[];
   partners?: Partner[];
-  onBookJob: (input: EstimatorInput, clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string }) => void;
+  onBookJob: (input: EstimatorInput, clientInfo: { name: string; phone: string; address: string; date: string; timeSlot: string; helpersNeeded?: number }) => void;
   onSaveClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   onCreateInvoiceFromQuote?: (quote: QuoteBreakdown, input: EstimatorInput, clientInfo: { name: string; phone: string; email?: string; address: string; date: string }) => void;
   initialInput?: Partial<EstimatorInput>;
@@ -64,6 +65,9 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   const [cleaningTimePreset, setCleaningTimePreset] = useState<string>('morning');
   const [cleaningCustomTime, setCleaningCustomTime] = useState<string>('');
 
+  // How many people this job needs on-site (Riot + any helpers)
+  const [bookingHelpersNeeded, setBookingHelpersNeeded] = useState<number>(1);
+
   // Referral code state
   const [referralCodeInput, setReferralCodeInput] = useState<string>(initialInput?.referralCode || '');
   const [appliedReferralCode, setAppliedReferralCode] = useState<string>(initialInput?.referralCode || '');
@@ -71,10 +75,9 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   const [matchedPartnerId, setMatchedPartnerId] = useState<string>('');
 
   const getEffectiveCleaningTime = () => {
-    if (cleaningTimePreset === 'morning') return '8:00 AM - 11:30 AM (Morning)';
-    if (cleaningTimePreset === 'midday') return '12:00 PM - 3:30 PM (Midday)';
-    if (cleaningTimePreset === 'afternoon') return '4:00 PM - 7:00 PM (Afternoon)';
-    return cleaningCustomTime.trim() || '8:00 AM - 11:30 AM (Morning)';
+    const preset = TIME_SLOT_PRESETS.find((p) => p.id === cleaningTimePreset);
+    if (preset) return preset.label;
+    return cleaningCustomTime.trim() || TIME_SLOT_PRESETS[1].label;
   };
 
   const [clientName, setClientName] = useState<string>('');
@@ -85,7 +88,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   // Booking modal state
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [bookingTime, setBookingTime] = useState('8:00 AM - 11:30 AM (Morning)');
+  const [bookingTime, setBookingTime] = useState(TIME_SLOT_PRESETS[1].label);
   const [bookingCustomTime, setBookingCustomTime] = useState('');
   const [selectedExistingClient, setSelectedExistingClient] = useState<string>('');
 
@@ -171,8 +174,8 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
       }
     }
 
-    const effectiveTime = bookingTime === 'Custom Time'
-      ? (bookingCustomTime.trim() || 'Custom Time')
+    const effectiveTime = bookingTime === CUSTOM_TIME_VALUE
+      ? (bookingCustomTime.trim() || CUSTOM_TIME_VALUE)
       : bookingTime;
 
     onBookJob(estimatorInput, {
@@ -181,6 +184,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
       address: addr,
       date: bookingDate,
       timeSlot: effectiveTime,
+      helpersNeeded: bookingHelpersNeeded,
     });
     setIsBookingModalOpen(false);
   };
@@ -610,9 +614,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                 </label>
                 <div className="space-y-1.5">
                   {[
-                    { id: 'morning', label: '8:00 AM - 11:30 AM', sub: 'Morning Solo Slot' },
-                    { id: 'midday', label: '12:00 PM - 3:30 PM', sub: 'Midday Slot' },
-                    { id: 'afternoon', label: '4:00 PM - 7:00 PM', sub: 'Afternoon / Twilight' },
+                    ...TIME_SLOT_PRESETS.map((p) => ({ id: p.id, label: p.label, sub: p.sub })),
                     { id: 'custom', label: 'Custom Time...', sub: 'Specific window' },
                   ].map((slot) => (
                     <label
@@ -1002,9 +1004,9 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                   onChange={(e) => setCleaningTimePreset(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-emerald-500 text-slate-800 font-medium"
                 >
-                  <option value="morning">8:00 AM - 11:30 AM (Morning)</option>
-                  <option value="midday">12:00 PM - 3:30 PM (Midday)</option>
-                  <option value="afternoon">4:00 PM - 7:00 PM (Afternoon)</option>
+                  {TIME_SLOT_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
                   <option value="custom">Custom Time...</option>
                 </select>
                 {cleaningTimePreset === 'custom' && (
@@ -1223,15 +1225,15 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                     onChange={(e) => setBookingTime(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-medium"
                   >
-                    <option value="8:00 AM - 11:30 AM (Morning)">8:00 AM - 11:30 AM (Morning)</option>
-                    <option value="12:00 PM - 3:30 PM (Midday)">12:00 PM - 3:30 PM (Midday)</option>
-                    <option value="4:00 PM - 7:00 PM (Afternoon)">4:00 PM - 7:00 PM (Afternoon)</option>
-                    <option value="Custom Time">Custom Time</option>
+                    {TIME_SLOT_PRESETS.map((p) => (
+                      <option key={p.id} value={p.label}>{p.label}</option>
+                    ))}
+                    <option value={CUSTOM_TIME_VALUE}>{CUSTOM_TIME_VALUE}</option>
                   </select>
                 </div>
               </div>
 
-              {bookingTime === 'Custom Time' && (
+              {bookingTime === CUSTOM_TIME_VALUE && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Custom Arrival Window:
@@ -1245,6 +1247,19 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Helpers Needed On-Site (including you):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={bookingHelpersNeeded}
+                  onChange={(e) => setBookingHelpersNeeded(parseInt(e.target.value, 10) || 1)}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-medium"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-end space-x-2">
