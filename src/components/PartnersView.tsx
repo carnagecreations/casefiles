@@ -86,19 +86,19 @@ const REWARD_TIERS_BY_TYPE: Record<PartnerType, { count: number; reward: string 
     { count: 10, reward: 'Ongoing quarterly free cleaning for your clubhouse, for as long as we\'re partnered' },
   ],
   realtor: [
-    { count: 3, reward: 'A free move-out/listing-prep cleaning for your next listing' },
-    { count: 6, reward: 'A free "closing gift" cleaning to hand any client at closing' },
-    { count: 10, reward: 'Priority same-week scheduling on every listing, plus a shoutout as a Preferred Cleaning Partner on our site & social' },
+    { count: 5, reward: 'A free move-out/listing-prep cleaning for your next listing' },
+    { count: 8, reward: 'A free "closing gift" cleaning to hand any client at closing' },
+    { count: 12, reward: 'Priority same-week scheduling on every listing, plus a shoutout as a Preferred Cleaning Partner on our site & social' },
   ],
   mover: [
-    { count: 3, reward: 'A free move-out/move-in cleaning for your own home or office' },
-    { count: 6, reward: '$75 service credit, plus we hand your card to every client who books through you' },
-    { count: 10, reward: 'A standing "movers + cleaners" bundle deal to offer your customers, and a shoutout as a Preferred Cleaning Partner' },
+    { count: 5, reward: 'A free move-out/move-in cleaning for your own home or office' },
+    { count: 8, reward: '$75 service credit, plus we hand your card to every client who books through you' },
+    { count: 12, reward: 'A standing "movers + cleaners" bundle deal to offer your customers, and a shoutout as a Preferred Cleaning Partner' },
   ],
   senior_move_manager: [
-    { count: 3, reward: 'A free move-out/downsizing cleanout cleaning' },
-    { count: 6, reward: '$75 service credit toward your own office or a client cleaning' },
-    { count: 10, reward: 'Priority scheduling for your clients\' move dates, plus a shoutout as a Preferred Cleaning Partner' },
+    { count: 5, reward: 'A free move-out/downsizing cleanout cleaning' },
+    { count: 8, reward: '$75 service credit toward your own office or a client cleaning' },
+    { count: 12, reward: 'Priority scheduling for your clients\' move dates, plus a shoutout as a Preferred Cleaning Partner' },
   ],
   vacation_rental_manager: [
     { count: 3, reward: 'A free turnover cleaning on us, plus a locked-in partner rate on recurring turnovers' },
@@ -194,7 +194,7 @@ const REALTOR_OBJECTIONS: { objection: string; rebuttal: string }[] = [
 // one pitch — swap "movers" for "clients" mentally when talking to the latter.
 const MOVER_PITCH_SCRIPT = {
   opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on move-out and move-in cleanings.`,
-  body: `We handle move-out cleans (getting a home ready to hand back or list) and move-in cleans (a fresh home before the boxes arrive). Every client of yours who books gets $25 off with your code — one less thing on their plate during an already stressful move. For you: every 2 referrals earns a free cleaning for your own home or office, 5 earns $75 credit, and at 10 we set up a standing "movers + cleaners" bundle deal you can offer your customers.`,
+  body: `We handle move-out cleans (getting a home ready to hand back or list) and move-in cleans (a fresh home before the boxes arrive). Every client of yours who books gets $25 off with your code — one less thing on their plate during an already stressful move. For you: every 5 referrals earns a free cleaning for your own home or office, 8 earns $75 credit, and at 12 we set up a standing "movers + cleaners" bundle deal you can offer your customers.`,
   ask: `Would it be okay if I left some cards, or something you could hand to clients when they're scheduling their move?`,
   close: `Great — I'll get that over to you today. Thanks for your time!`,
 };
