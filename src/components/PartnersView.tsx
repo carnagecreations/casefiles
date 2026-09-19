@@ -86,18 +86,18 @@ const REWARD_TIERS_BY_TYPE: Record<PartnerType, { count: number; reward: string 
     { count: 10, reward: 'Ongoing quarterly free cleaning for your clubhouse, for as long as we\'re partnered' },
   ],
   realtor: [
-    { count: 2, reward: 'A free move-out/listing-prep cleaning for your next listing' },
-    { count: 5, reward: 'A free "closing gift" cleaning to hand any client at closing' },
+    { count: 3, reward: 'A free move-out/listing-prep cleaning for your next listing' },
+    { count: 6, reward: 'A free "closing gift" cleaning to hand any client at closing' },
     { count: 10, reward: 'Priority same-week scheduling on every listing, plus a shoutout as a Preferred Cleaning Partner on our site & social' },
   ],
   mover: [
-    { count: 2, reward: 'A free move-out/move-in cleaning for your own home or office' },
-    { count: 5, reward: '$75 service credit, plus we hand your card to every client who books through you' },
+    { count: 3, reward: 'A free move-out/move-in cleaning for your own home or office' },
+    { count: 6, reward: '$75 service credit, plus we hand your card to every client who books through you' },
     { count: 10, reward: 'A standing "movers + cleaners" bundle deal to offer your customers, and a shoutout as a Preferred Cleaning Partner' },
   ],
   senior_move_manager: [
-    { count: 2, reward: 'A free move-out/downsizing cleanout cleaning' },
-    { count: 5, reward: '$75 service credit toward your own office or a client cleaning' },
+    { count: 3, reward: 'A free move-out/downsizing cleanout cleaning' },
+    { count: 6, reward: '$75 service credit toward your own office or a client cleaning' },
     { count: 10, reward: 'Priority scheduling for your clients\' move dates, plus a shoutout as a Preferred Cleaning Partner' },
   ],
   vacation_rental_manager: [
