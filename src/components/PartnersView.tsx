@@ -20,6 +20,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { buildSmsLink, buildZohoComposeLink } from '../utils/contactLinks';
+import CallRunner, { Track } from './CallRunner';
 
 interface PartnersViewProps {
   partners: Partner[];
@@ -123,7 +124,7 @@ const getRewardProgress = (referredCount: number, type: PartnerType) => {
 // objections that actually come up and a short rebuttal for each — meant to be
 // pulled up on your phone right before or during the conversation.
 const PITCH_SCRIPT = {
-  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about a resident perk for the snowbird season, no cost to you.`,
+  opener: `Hi, I'm Shiann with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about a resident perk for the snowbird season, no cost to you.`,
   body: `We clean seasonal/winter homes for snowbirds arriving here in Yuma, and we'd like ${'{business name}'} to be the cleaning service you point residents to. Anyone here who mentions your name gets $25 off their first cleaning, and moves into a spotless home the day they arrive instead of spending their first day cleaning after a long drive. For you, there's nothing to do — just let residents know we exist, maybe a flyer at the office or in a welcome packet. Once a few residents sign on, we'll credit or discount a cleaning for your own office or common areas as a thank-you.`,
   ask: `Would it be alright if I dropped off a few flyers or business cards, or emailed you something you could include in a welcome packet?`,
   close: `Great — I'll get that over to you today. If residents have any questions they can call or text me directly. Thanks for your time!`,
@@ -160,7 +161,7 @@ const OBJECTIONS: { objection: string; rebuttal: string }[] = [
 // going up, a closing) rather than per-resident, so the framing is about
 // selling homes faster and a nice touch at closing, not a seasonal special.
 const REALTOR_PITCH_SCRIPT = {
-  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on listing-prep and closing cleanings.`,
+  opener: `Hi, I'm Shiann with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on listing-prep and closing cleanings.`,
   body: `We do move-out cleans before a listing goes live and move-in cleans for your buyers at closing. Homes show and photograph better clean, and it's one less thing your seller has to think about. Any client of yours gets $25 off when they mention ${'{business name}'} or use your code. For you, every couple referrals earns a free listing-prep cleaning you can use on your own listings, and a few more earns a free "closing gift" cleaning you can hand a client at closing — a nice touch that keeps your name on their mind.`,
   ask: `Would it be alright if I left a few cards, or emailed you something you could drop into your closing packets?`,
   close: `Great — I'll get that over to you today. Congrats on the business, and thanks for your time!`,
@@ -193,7 +194,7 @@ const REALTOR_OBJECTIONS: { objection: string; rebuttal: string }[] = [
 // exact moment a move-out or move-in cleaning becomes urgent, so they share
 // one pitch — swap "movers" for "clients" mentally when talking to the latter.
 const MOVER_PITCH_SCRIPT = {
-  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on move-out and move-in cleanings.`,
+  opener: `Hi, I'm Shiann with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about partnering on move-out and move-in cleanings.`,
   body: `We handle move-out cleans (getting a home ready to hand back or list) and move-in cleans (a fresh home before the boxes arrive). Every client of yours who books gets $25 off with your code — one less thing on their plate during an already stressful move. For you: every 5 referrals earns a free cleaning for your own home or office, 8 earns $75 credit, and at 12 we set up a standing "movers + cleaners" bundle deal you can offer your customers.`,
   ask: `Would it be okay if I left some cards, or something you could hand to clients when they're scheduling their move?`,
   close: `Great — I'll get that over to you today. Thanks for your time!`,
@@ -230,7 +231,7 @@ const MOVER_OBJECTIONS: { objection: string; rebuttal: string }[] = [
 // a direct recurring turnover-cleaning contract, not just a referral source
 // for one-off discounts, so the pitch leads with becoming their cleaner.
 const VRM_PITCH_SCRIPT = {
-  opener: `Hi, I'm Riot with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about handling your short-term rental turnovers.`,
+  opener: `Hi, I'm Shiann with Clean Convictions — we're a local Yuma cleaning company. Do you have two minutes? I wanted to talk about handling your short-term rental turnovers.`,
   body: `We do turnover cleaning between guests — beds made, bathrooms spotless, a quick guest-ready check before your next arrival — and can offer a locked-in partner rate instead of one-off invoices. If you manage more than one property or know other owners, referring us in earns real perks: 3 referrals gets you a free turnover on us, 6 gets $75 credit, and at 10 you get priority same-day scheduling across every listing you manage.`,
   ask: `Would you be open to a trial turnover on one property, no commitment, just to see the quality and turnaround?`,
   close: `Great — which property should we start with, and what's the tightest same-day window you need covered?`,
@@ -281,6 +282,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   const [filter, setFilter] = useState<PartnerStatus | 'all'>('all');
   const [scriptOpen, setScriptOpen] = useState(false);
   const [scriptTab, setScriptTab] = useState<'property' | 'realtor' | 'mover' | 'vrm'>('property');
+  const [runner, setRunner] = useState<{ business: string; track: Track } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -345,6 +347,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   };
 
   return (
+    <>
     <div className="py-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -367,6 +370,16 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
 
       {/* Call script & objection rebuttals — collapsed by default, pull up right before/during a visit or call */}
       <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setRunner({ business: '', track: 'property' })}
+          className="w-full flex items-center gap-2 px-4 py-3 border-b border-rose-200 cursor-pointer text-left"
+        >
+          <Phone className="w-4 h-4 text-rose-700" />
+          <span className="text-sm font-bold text-rose-800">Run a call &mdash; interactive script</span>
+          <span className="ml-auto text-[11px] font-bold uppercase tracking-wider text-white bg-rose-600 rounded px-2 py-0.5">
+            Start
+          </span>
+        </button>
         <button
           onClick={() => setScriptOpen((v) => !v)}
           className="w-full flex items-center justify-between px-4 py-3 cursor-pointer"
@@ -745,5 +758,14 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         </div>
       )}
     </div>
+
+      {runner && (
+        <CallRunner
+          initialBusiness={runner.business}
+          initialTrack={runner.track}
+          onClose={() => setRunner(null)}
+        />
+      )}
+    </>
   );
 };

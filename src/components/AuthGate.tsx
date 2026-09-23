@@ -105,7 +105,7 @@ export function LoginScreen() {
         </form>
 
         <p className="mt-6 text-center text-[11px] text-slate-400 leading-relaxed">
-          Accounts are added by Riot in the Firebase console — there’s no public
+          Accounts are added by Shiann in the Firebase console — there’s no public
           sign-up. Ask her if you need access.
         </p>
       </div>

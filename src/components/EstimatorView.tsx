@@ -65,7 +65,7 @@ export const EstimatorView: React.FC<EstimatorViewProps> = ({
   const [cleaningTimePreset, setCleaningTimePreset] = useState<string>('morning');
   const [cleaningCustomTime, setCleaningCustomTime] = useState<string>('');
 
-  // How many people this job needs on-site (Riot + any helpers)
+  // How many people this job needs on-site (Shiann + any helpers)
   const [bookingHelpersNeeded, setBookingHelpersNeeded] = useState<number>(1);
 
   // Referral code state

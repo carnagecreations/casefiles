@@ -133,7 +133,7 @@ export interface JobAppointment {
   timerStartedAt?: string; // ISO timestamp while the on-site timer is running
   cancellationReason?: string;
   qualityRating?: number; // 1-5 self/client-reported quality rating on completion
-  helpersNeeded?: number; // how many people (including Riot) this job needs on-site
+  helpersNeeded?: number; // how many people (including Shiann) this job needs on-site
 }
 
 export interface BlockedTime {
