@@ -389,6 +389,58 @@ const INTERRUPTS: { text: string; to: string }[] = [
 
 const INTERRUPT_IDS = INTERRUPTS.map((i) => i.to);
 
+/**
+ * Selling tips, in the spirit of how Ryan Serhant coaches it. These are
+ * principles written in our own words, not quotations. One per screen, tucked
+ * inside the same drawer as the delivery note so the screen count never grows.
+ */
+const TIPS: Record<string, string> = {
+  OPENER:
+    'Energy is a decision you make before you dial, not a mood you wait for. They can hear a smile through the phone, and the first four seconds decide whether you are a person or a telemarketer. Stand up. Dial the next one within ten seconds of hanging up the last one — momentum is the whole game.',
+  triage:
+    'The best closers are the best listeners. You already know your lines, so spend this moment listening to theirs: who they are, how busy they sound, whether they like their current setup. What they say here is what you sell with thirty seconds from now.',
+  gatekeeper:
+    'The person answering the phone is not in your way, they are the shortest path in. Get their name and use it. Treat them like the most important person in the building and they will walk your name to the manager personally. Most people burn this relationship in ten seconds by sounding annoyed.',
+  transfer:
+    'Do not coast while you wait. Take a breath, say the business name in your head, and start fresh. The next person heard none of it and they are judging the first sentence, not the fifth.',
+  pitch:
+    'Do not sell, serve. You are not asking them for money, you are handing them something that makes their residents happier and their phone quieter — for free. Say it like the favour it is. Then the hardest and most valuable thing in sales: shut up. Silence is not awkward, it is the close doing its work.',
+  close:
+    'Most deals die because nobody ever actually asked. You can run a perfect call and lose it by fading out on "well, let me know." Ask, specifically, for the thing you want, and give two options instead of a yes-or-no. Then go quiet and let them pick one.',
+  havecleaner:
+    'Never trash the competition — it makes you small and it makes them defensive. Compliment the fact that they are covered, then take the door that is actually open: be the backup. Backups become primaries the first week the other person does not show.',
+  inhouse:
+    'Shrink the ask until it is impossible to refuse. You are not asking to replace their system, you are asking for one phone number in one contact list for one bad week. Tiny yeses are how big accounts start.',
+  solicit:
+    'When the front door closes, do not push on it. Ask for the window. A stack of cards on a desk is a worse outcome than the welcome packet and a far better outcome than nothing, and it keeps you welcome back in the spring.',
+  whatsinit:
+    'Never answer this with your discount. Answer it with their problem. Every manager is buying the same thing: fewer complaints, fewer fires, a quieter phone. Lead with what makes them look good to their boss and their residents.',
+  sendme:
+    'Follow up, follow through, follow back. "Send me something" is where most deals quietly die, because the email goes out and nobody ever circles back. Get the address and a specific day out loud, then actually call on that day. The follow-up is the job.',
+  price:
+    'Say your number the way you would say your own name. No hedging, no nervous laugh, no "it depends" spiral. The confidence you deliver the number with is most of whether they accept it. Then stop talking — the first person to speak after a price negotiates against themselves.',
+  expensive:
+    'Never discount on the phone to save a call. The moment you drop your price you have taught them that your first number was fake, and you will negotiate every job from now on. Defend the value instead: who shows up, what you bring, what happens if it is wrong.',
+  insured:
+    'Honesty is a sales asset, not a weakness. Saying the uncomfortable true thing out loud makes every other claim you make more believable — and in a town this size, getting caught in one exaggeration ends the whole business. Answer it straight and move to what you can guarantee today.',
+  whois:
+    'Being forgettable is worse than being rejected. Say the company name clearly, say "local," say there are two of you. People buy from people, especially in a small town, so give them a person to remember instead of a pitch.',
+  busy:
+    'Respect their time out loud and they will usually give you some. Offering a real choice — thirty seconds now or a better time later — turns a brush-off into an appointment. Never keep talking over someone who just told you they are busy.',
+  callback:
+    'The calendar is where deals live. Vague follow-ups never happen, so pin a day and time and write it down while they are still on the line. Then call exactly when you said you would — doing that one thing puts you ahead of almost everyone who calls them.',
+  message:
+    'Assume the message will never reach them, and be gracious anyway. Leave your name and number slowly, thank the person taking it, and put your own reminder in for four days out. Your follow-up is the one that works, not their note.',
+  leavesomething:
+    'Never leave empty-handed. A card outlives the conversation by months, and the person who says no in September is often the person who calls in January when their cleaner quits. Leaving something is how a no stays a maybe.',
+  voicemail:
+    'Short, warm, and the number twice. Nobody has ever called back a rambling voicemail. And do not leave a second one — it reads as desperate. Call again in four days instead, because most answers come after several attempts, not the first.',
+  softno:
+    'No is not forever, it is not right now. How you handle the rejection is what they will remember when their situation changes, so hang up warmer than you were when they said it. Yuma is small and these offices talk to each other.',
+  wrapwin:
+    'The fortune is in the follow-up. Log it before you dial the next one, because the version you remember in three days will be wrong. A prospect with no next date is not a prospect, it is a story you tell yourself about being busy.',
+};
+
 const emphasize = (line: string) =>
   line.split(/(\*\*[^*]+\*\*)/g).map((chunk, i) =>
     chunk.startsWith('**') && chunk.endsWith('**') ? (
@@ -608,10 +660,18 @@ export default function CallRunner({ initialBusiness = '', initialTrack, onClose
                     </p>
                   ))}
                 </div>
-                {node.coach && (
+                {(node.coach || TIPS[nodeId]) && (
                   <div className="mt-2">
-                    <Drawer title="How to say it">
-                      <p className="max-w-[52ch] text-[15px] leading-relaxed text-slate-600">{node.coach}</p>
+                    <Drawer title="How to say it, and why">
+                      {node.coach && (
+                        <p className="max-w-[52ch] text-[15px] leading-relaxed text-slate-600">{node.coach}</p>
+                      )}
+                      {TIPS[nodeId] && (
+                        <div className={`rounded-lg border border-teal-200 bg-teal-50/70 px-3.5 py-3 ${node.coach ? 'mt-3' : ''}`}>
+                          <p className="mb-1 text-[12px] font-bold uppercase tracking-wider text-teal-800">Selling tip</p>
+                          <p className="max-w-[52ch] text-[15px] leading-relaxed text-teal-900">{TIPS[nodeId]}</p>
+                        </div>
+                      )}
                     </Drawer>
                   </div>
                 )}
